@@ -23,15 +23,22 @@
 
 # The java implementation to use.  Required.
 #export JAVA_HOME=/usr/lib/jvm/java-6-sun
+export JAVA_HOME=/System/Library/Frameworks/JavaVM.framework/Versions/CurrentJDK/Home
 
 # Where log files are stored.  $HAMA_HOME/logs by default.
 # export HAMA_LOG_DIR=${HAMA_HOME}/logs
 
 # The maximum amount of heap to use, in MB. Default is 1000.
 # export HAMA_HEAPSIZE=1000
+export HADOOP_HEAPSIZE=2000
 
 # Extra ssh options.  Empty by default.
 # export HAMA_SSH_OPTS="-o ConnectTimeout=1 -o SendEnv=HAMA_CONF_DIR"
 
 # Tell Hama whether it should manage it's own instance of Zookeeper or not.
 # export HAMA_MANAGES_ZK=true 
+
+# “Unable to load realm info from SCDynamicStore”
+#export HAMA_OPTS="-Djava.security.krb5.realm=OX.AC.UK -Djava.security.krb5.kdc=kdc0.ox.ac.uk:kdc1.ox.ac.uk"
+export HAMA_OPTS="-Djava.security.krb5.realm= -Djava.security.krb5.kdc="
+
