@@ -73,7 +73,8 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
    * @throws InterruptedException
    * @throws IOException
    */
-  Application(BSPPeer<K1, V1, K2, V2, M> peer, Class<? extends K2> outputKeyClass, 
+  Application(BSPPeer<K1, V1, K2, V2, M> peer, 
+		  Class<? extends K2> outputKeyClass, 
 		  Class<? extends V2> outputValueClass) 
 		  throws IOException, InterruptedException {
  

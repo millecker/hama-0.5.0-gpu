@@ -22,7 +22,6 @@ import java.io.IOException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
-import org.apache.hama.bsp.InputSplit;
 
 /**
  * The abstract description of the downward (from Java to C++) Pipes protocol.
@@ -39,14 +38,6 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
   void start() throws IOException;
 
   /**
-   * Sets the configuration for the task.
-   * 
-   * @param conf
-   * @throws IOException
-   */
-  void setConfiguration(Configuration conf) throws IOException;
-
-  /**
    * Set the input types for Maps.
    * 
    * @param keyType the name of the key's type
@@ -55,18 +46,15 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
    */
   void setInputTypes(String keyType, String valueType) throws IOException;
 
-  void runBsp(InputSplit split, boolean pipedInput, boolean pipedOutput)
+  void runBsp(boolean pipedInput, boolean pipedOutput)
       throws IOException;
 
-  void readKeyValue(K key, V value) throws IOException;
+  void runCleanup(boolean pipedInput, boolean pipedOutput)
+	      throws IOException;
 
-  /**
-   * The task has no more input coming, but it should finish processing it's
-   * input.
-   * 
-   * @throws IOException
-   */
-  void endOfInput() throws IOException;
+  void runSetup(boolean pipedInput, boolean pipedOutput)
+	      throws IOException;
+
 
   /**
    * The task should stop as soon as possible, because something has gone wrong.

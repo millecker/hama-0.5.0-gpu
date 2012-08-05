@@ -386,6 +386,8 @@ public class GroomServer implements Runnable, GroomProtocol, BSPPeerProtocol,
     if (-1 == rpcPort || null == rpcAddr)
       throw new IllegalArgumentException("Error rpc address " + rpcAddr
           + " port" + rpcPort);
+    /* TODO */
+    /* GPU Tasks */
     if (!this.masterClient.register(new GroomServerStatus(groomServerName,
         cloneAndResetRunningTaskStatuses(), failures, maxCurrentTasks,
         this.rpcServer, groomHostName))) {
@@ -574,6 +576,7 @@ public class GroomServer implements Runnable, GroomProtocol, BSPPeerProtocol,
   /**
    * Update and report refresh status back to BSPMaster.
    */
+  /* TODO */
   public void doReport(List<TaskStatus> taskStatuses) {
     GroomServerStatus groomStatus = new GroomServerStatus(groomServerName,
         updateTaskStatuses(taskStatuses), failures, maxCurrentTasks, rpcServer,

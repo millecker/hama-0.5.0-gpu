@@ -39,13 +39,10 @@ import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hama.bsp.BSPJob;
 import org.apache.hama.bsp.BSPPeer;
-import org.apache.hama.bsp.InputSplit;
-import org.omg.CORBA.portable.Streamable;
+import org.apache.hama.util.KeyValuePair;
 
 /**
  * This protocol is a binary implementation of the Pipes protocol.
@@ -75,13 +72,13 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
 	  	START(0), SET_JOB_CONF(1), SET_INPUT_TYPES(2), 
     	
 	  	RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(5),
-    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), 
-    	SEND_MSG(9), SYNC(10), REOPEN_INPUT(11), 
+    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), GET_MSG_COUNT(9), 
+    	SEND_MSG(10), SYNC(11), 
     	GET_ALL_PEERNAME(12), GET_PEERNAME(13),
+    	REOPEN_INPUT(14), END_OF_INPUT(15),
     	
     	CLOSE(47), ABORT(48), AUTHENTICATION_REQ(49), OUTPUT(50), PARTITIONED_OUTPUT(
-        51), STATUS(52), PROGRESS(53), DONE(54), REGISTER_COUNTER(55), INCREMENT_COUNTER(
-        56);
+        51), STATUS(52), PROGRESS(53), DONE(54), REGISTER_COUNTER(55), INCREMENT_COUNTER(56);
     final int code;
 
     MessageType(int code) {
@@ -135,17 +132,27 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           } else if (cmd == MessageType.DONE.code) {
             LOG.debug("Pipe child done");
             return;
+            
           } else if (cmd == MessageType.SEND_MSG.code) {
         	  String peerName = Text.readString(inStream);
         	  byte[] arr = new byte[WritableUtils.readVInt(inStream)];
         	  inStream.readFully(arr, 0, arr.length);
-        	  M msg = (Writable) new BytesWritable(arr);
+        	  M msg = (M) new BytesWritable(arr);
+        	  peer.send(peerName, msg);    
         	  
-        	  peer.send(peerName, msg);
-        	 
+          } else if (cmd == MessageType.GET_MSG_COUNT.code) {
+        	  
+        	  WritableUtils.writeVInt(stream, peer.getNumCurrentMessages()); 
+        	  
+          } else if (cmd == MessageType.GET_MSG.code) {
+        	  
+        	  M msg = peer.getCurrentMessage();
+        	  if (msg!=null)
+        		  writeObject(msg);
         	  
           } else if (cmd == MessageType.SYNC.code) {
-          
+        	  peer.sync();
+        	  
           } else if (cmd == MessageType.GET_ALL_PEERNAME.code) {
               
         	  WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
@@ -156,6 +163,25 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
         	  int id = WritableUtils.readVInt(inStream);
         	  stream.writeUTF(peer.getPeerName(id));
         	  
+          } else if (cmd == MessageType.READ_KEYVALUE.code) {
+        	  KeyValuePair<K1,V1> pair = peer.readNext();
+        	  if (pair!=null) {
+        		  writeObject(pair.getKey());
+        		  writeObject(pair.getValue());
+        		  
+        	  } else {
+        		  /* TODO */
+        		  WritableUtils.writeVInt(stream,MessageType.END_OF_INPUT.code);
+        	  } 
+        	  
+          } else if (cmd == MessageType.WRITE_KEYVALUE.code) {
+        	  readObject(key);
+        	  readObject(value);
+        	  peer.write(key, value);
+          
+          } else if (cmd == MessageType.REOPEN_INPUT.code) {
+        	  peer.reopenInput();
+              	   	
           } else {
             throw new IOException("Bad command code: " + cmd);
           }
@@ -242,30 +268,12 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       raw = new TeeOutputStream("downlink.data", raw);
     }
     stream = new DataOutputStream(new BufferedOutputStream(raw, BUFFER_SIZE));
-    uplink = new UplinkReaderThread<K2, V2>(peer,sock.getInputStream(), key, value);
+    uplink = new UplinkReaderThread(peer,sock.getInputStream(), key, value);
     
     uplink.setName("pipe-uplink-handler");
     uplink.start();
   }
   
-  
-  @Override
-  public void setConfiguration(Configuration conf) throws IOException {
-    this.conf = conf;
-  }
-
-  @Override
-  public void runBsp(InputSplit split, boolean pipedInput, boolean pipedOutput)
-      throws IOException {
-    // TODO Auto-generated method stub
-
-  }
-
-  @Override
-  public void readKeyValue(K1 key, V1 value) throws IOException {
-    // TODO Auto-generated method stub
-
-  }
 
   /**
    * Close the connection and shutdown the handler thread.
@@ -273,7 +281,10 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    * @throws IOException
    * @throws InterruptedException
    */
-  public void close() throws IOException, InterruptedException {
+  public void close(boolean pipedInput, boolean pipedOutput) throws IOException, InterruptedException {
+	
+	runCleanup(pipedInput,pipedOutput);
+	  
     LOG.debug("closing connection");
     stream.close();
     uplink.closeConnection();
@@ -287,10 +298,10 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     WritableUtils.writeVInt(stream, CURRENT_PROTOCOL_VERSION);
   }
 
-  public void setBSPJob(BSPJob job) throws IOException {
+  public void setBSPJob(Configuration conf) throws IOException {
     WritableUtils.writeVInt(stream, MessageType.SET_JOB_CONF.code);
     List<String> list = new ArrayList<String>();
-    for (Map.Entry<String, String> itm : job.getConf()) {
+    for (Map.Entry<String, String> itm : conf) {
       list.add(itm.getKey());
       list.add(itm.getValue());
     }
@@ -307,39 +318,32 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     Text.writeString(stream, valueType);
   }
 
-  public void runBsp(InputSplit split, int numReduces, boolean pipedInput)
+  
+  public void runSetup(boolean pipedInput, boolean pipedOutput)
+	      throws IOException {
+		
+	WritableUtils.writeVInt(stream, MessageType.RUN_SETUP.code);
+	WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
+	WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);  
+  }
+  
+  public void runBsp(boolean pipedInput, boolean pipedOutput)
       throws IOException {
+  
     WritableUtils.writeVInt(stream, MessageType.RUN_BSP.code);
-    writeObject(split);
-    WritableUtils.writeVInt(stream, numReduces);
     WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
+    WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
+  }
+  
+  public void runCleanup(boolean pipedInput, boolean pipedOutput)
+	      throws IOException {
+		
+		WritableUtils.writeVInt(stream, MessageType.RUN_CLEANUP.code);
+		WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
+		WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);  
   }
 
-  public void updateKeyValue(WritableComparable<?> key, Writable value)
-      throws IOException {
-    WritableUtils.writeVInt(stream, MessageType.UPDATE_KEYVALUE.code);
-    writeObject(key);
-    writeObject(value);
-  }
 
-  /*
-   * public void runMap(InputSplit split, int numReduces, boolean pipedInput)
-   * throws IOException { WritableUtils.writeVInt(stream,
-   * MessageType.RUN_MAP.code); writeObject(split);
-   * WritableUtils.writeVInt(stream, numReduces);
-   * WritableUtils.writeVInt(stream, pipedInput ? 1 : 0); } public void
-   * mapItem(WritableComparable key, Writable value) throws IOException {
-   * WritableUtils.writeVInt(stream, MessageType.MAP_ITEM.code);
-   * writeObject(key); writeObject(value); } public void runReduce(int reduce,
-   * boolean pipedOutput) throws IOException { WritableUtils.writeVInt(stream,
-   * MessageType.RUN_REDUCE.code); WritableUtils.writeVInt(stream, reduce);
-   * WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0); } public void
-   * reduceKey(WritableComparable key) throws IOException {
-   * WritableUtils.writeVInt(stream, MessageType.REDUCE_KEY.code);
-   * writeObject(key); } public void reduceValue(Writable value) throws
-   * IOException { WritableUtils.writeVInt(stream,
-   * MessageType.REDUCE_VALUE.code); writeObject(value); }
-   */
   public void endOfInput() throws IOException {
     WritableUtils.writeVInt(stream, MessageType.CLOSE.code);
     LOG.debug("Sent close command");
@@ -389,6 +393,13 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
 	public boolean waitForFinish() throws IOException, InterruptedException {
 		// TODO Auto-generated method stub
 		return false;
+	}
+
+
+	@Override
+	public void close() throws IOException, InterruptedException {
+		// TODO Auto-generated method stub
+		
 	}
 
 }
