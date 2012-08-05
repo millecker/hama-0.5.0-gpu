@@ -30,52 +30,50 @@ import org.apache.hama.bsp.RecordReader;
 import org.apache.hama.bsp.TextInputFormat;
 
 /**
- * Dummy input format used when non-Java a {@link RecordReader} is used by
- * the Pipes' application.
- *
+ * Dummy input format used when non-Java a {@link RecordReader} is used by the
+ * Pipes' application.
+ * 
  * The only useful thing this does is set up the Map-Reduce job to get the
  * {@link PipesDummyRecordReader}, everything else left for the 'actual'
- * InputFormat specified by the user which is given by 
+ * InputFormat specified by the user which is given by
  * <i>mapred.pipes.user.inputformat</i>.
  */
-class PipesNonJavaInputFormat implements InputFormat<FloatWritable, NullWritable> {
+class PipesNonJavaInputFormat implements
+    InputFormat<FloatWritable, NullWritable> {
 
   @Override
   public RecordReader<FloatWritable, NullWritable> getRecordReader(
-      InputSplit genericSplit, BSPJob job)
-      throws IOException {
+      InputSplit genericSplit, BSPJob job) throws IOException {
     return new PipesDummyRecordReader(job.getConf(), genericSplit);
   }
-  
+
   @Override
   public InputSplit[] getSplits(BSPJob job, int numSplits) throws IOException {
     // Delegate the generation of input splits to the 'original' InputFormat
     return ReflectionUtils.newInstance(
-        job.getConf().getClass("hama.pipes.user.inputformat", 
-                     TextInputFormat.class, 
-                     InputFormat.class),
-                     job.getConf()).getSplits(job, numSplits);
+        job.getConf().getClass("hama.pipes.user.inputformat",
+            TextInputFormat.class, InputFormat.class), job.getConf())
+        .getSplits(job, numSplits);
   }
 
-  
   /**
    * A dummy {@link org.apache.hadoop.mapred.RecordReader} to help track the
    * progress of Hama Pipes' applications when they are using a non-Java
    * <code>RecordReader</code>.
-   *
+   * 
    * The <code>PipesDummyRecordReader</code> is informed of the 'progress' of
    * the task by the {@link OutputHandler#progress(float)} which calls the
    * {@link #next(FloatWritable, NullWritable)} with the progress as the
    * <code>key</code>.
    */
-  static class PipesDummyRecordReader implements RecordReader<FloatWritable, NullWritable> {
+  static class PipesDummyRecordReader implements
+      RecordReader<FloatWritable, NullWritable> {
     float progress = 0.0f;
-    
+
     public PipesDummyRecordReader(Configuration job, InputSplit split)
-    throws IOException{
+        throws IOException {
     }
 
-    
     public FloatWritable createKey() {
       return null;
     }
@@ -84,7 +82,8 @@ class PipesNonJavaInputFormat implements InputFormat<FloatWritable, NullWritable
       return null;
     }
 
-    public synchronized void close() throws IOException {}
+    public synchronized void close() throws IOException {
+    }
 
     public synchronized long getPos() throws IOException {
       return 0;

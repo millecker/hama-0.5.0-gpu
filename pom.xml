@@ -318,6 +318,7 @@
             <exclude>**/logs/**</exclude>
             <exclude>**/docs/**</exclude>
             <exclude>CHANGES.txt</exclude>
+			<exclude>c++/**</exclude>
             <exclude>conf/groomservers</exclude>
             <exclude>src/site/resources/files/hama-eclipse-formatter.xml</exclude>
             <exclude>**/src/test/resources/*.properties</exclude>

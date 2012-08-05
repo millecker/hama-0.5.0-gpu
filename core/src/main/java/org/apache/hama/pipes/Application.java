@@ -33,6 +33,7 @@ import javax.crypto.SecretKey;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
@@ -42,12 +43,8 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
-import org.apache.hadoop.mapreduce.security.TokenCache;
-import org.apache.hadoop.mapreduce.security.token.JobTokenIdentifier;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
-import org.apache.hadoop.security.token.Token;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.HamaConfiguration;
@@ -58,101 +55,89 @@ import org.apache.hama.bsp.TaskAttemptID;
 import org.apache.hama.bsp.TaskLog;
 
 /**
- * This class is responsible for launching and communicating with the child 
+ * This class is responsible for launching and communicating with the child
  * process.
  */
-class Application<K1 extends WritableComparable, V1 extends Writable,
-                  K2 extends WritableComparable, V2 extends Writable> {
-	
+class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable> {
+
   private static final Log LOG = LogFactory.getLog(Application.class.getName());
   private ServerSocket serverSocket;
   private Process process;
   private Socket clientSocket;
   private OutputHandler<K2, V2> handler;
   private DownwardProtocol<K1, V1> downlink;
-  static final boolean WINDOWS
-  = System.getProperty("os.name").startsWith("Windows");
+  static final boolean WINDOWS = System.getProperty("os.name").startsWith(
+      "Windows");
 
-  
-  
   /**
    * Start the child process to handle the task for us.
+   * 
    * @param conf the task's configuration
    * @param recordReader the fake record reader to update progress with
    * @param output the collector to send output to
    * @param reporter the reporter for the task
    * @param outputKeyClass the class of the output keys
    * @param outputValueClass the class of the output values
-   * @throws InterruptedException 
-   * @throws IOException 
+   * @throws InterruptedException
+   * @throws IOException
    */
-  Application(BSPJob jobConfig, 
-          RecordReader<FloatWritable, NullWritable> recordReader, 
-          OutputCollector<K2,V2> output,
-          Class<? extends K2> outputKeyClass,
-          Class<? extends V2> outputValueClass) throws IOException, InterruptedException {
-	  this(jobConfig, recordReader, output, outputKeyClass, outputValueClass, false);
+  Application(Configuration jobConfig,
+      RecordReader<FloatWritable, NullWritable> recordReader,
+      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
+      Class<? extends V2> outputValueClass) throws IOException,
+      InterruptedException {
+    this(jobConfig, recordReader, output, outputKeyClass, outputValueClass,
+        false);
   }
-  
+
   /**
    * Start the child process to handle the task for us.
+   * 
    * @param conf the task's configuration
    * @param recordReader the fake record reader to update progress with
    * @param output the collector to send output to
    * @param reporter the reporter for the task
    * @param outputKeyClass the class of the output keys
    * @param outputValueClass the class of the output values
-   * @param runOnGPU 
+   * @param runOnGPU
    * @throws IOException
    * @throws InterruptedException
    */
-  Application(BSPJob jobConfig, 
-		  RecordReader<FloatWritable, NullWritable> recordReader, 
-		  OutputCollector<K2,V2> output,
-		  Class<? extends K2> outputKeyClass,
-          Class<? extends V2> outputValueClass,
-          boolean runOnGPU
-  ) throws IOException, InterruptedException {
-	  this(jobConfig, recordReader, output, outputKeyClass, outputValueClass, runOnGPU, 0);
+  Application(Configuration jobConfig,
+      RecordReader<FloatWritable, NullWritable> recordReader,
+      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
+      Class<? extends V2> outputValueClass, boolean runOnGPU)
+      throws IOException, InterruptedException {
+    this(jobConfig, recordReader, output, outputKeyClass, outputValueClass,
+        runOnGPU, 0);
   }
-  
+
   /**
    * Start the child process to handle the task for us.
+   * 
    * @param conf the task's configuration
    * @param recordReader the fake record reader to update progress with
    * @param output the collector to send output to
    * @param reporter the reporter for the task
    * @param outputKeyClass the class of the output keys
    * @param outputValueClass the class of the output values
-   * @param runOnGPU 
+   * @param runOnGPU
    * @throws IOException
    * @throws InterruptedException
    */
-  Application(BSPJob job, 
-		  RecordReader<FloatWritable, NullWritable> recordReader, 
-		  OutputCollector<K2,V2> output,
-		  Class<? extends K2> outputKeyClass,
-		  Class<? extends V2> outputValueClass,
-		  boolean runOnGPU,
-		  int GPUDeviceId) throws IOException, InterruptedException {
-	  
+  Application(Configuration job,
+      RecordReader<FloatWritable, NullWritable> recordReader,
+      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
+      Class<? extends V2> outputValueClass, boolean runOnGPU, int GPUDeviceId)
+      throws IOException, InterruptedException {
+
     serverSocket = new ServerSocket(0);
-    Map<String, String> env = new HashMap<String,String>();
+    Map<String, String> env = new HashMap<String, String>();
     // add TMPDIR environment variable with the value of java.io.tmpdir
     env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
-    env.put("hadoop.pipes.command.port", 
-            Integer.toString(serverSocket.getLocalPort()));
-    
-    //Add token to the environment if security is enabled
-    Token<JobTokenIdentifier> jobToken = TokenCache.getJobToken(job.getCredentials());
-    // This password is used as shared secret key between this application and
-    // child pipes process
-    byte[]  password = jobToken.getPassword();
-    String localPasswordFile = new File(".") + Path.SEPARATOR
-        + "jobTokenPassword";
-    writePasswordToLocalFile(localPasswordFile, password, job);
-    env.put("hadoop.pipes.shared.secret.location", localPasswordFile);
- 
+    env.put("hadoop.pipes.command.port",
+        Integer.toString(serverSocket.getLocalPort()));
+
     List<String> cmd = new ArrayList<String>();
     String interpretor = job.get("hadoop.pipes.executable.interpretor");
     if (interpretor != null) {
@@ -162,13 +147,17 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-    	executable = DistributedCache.getLocalCacheFiles(job.getConf())[(runOnGPU)?1:0].toString();
-    } catch (Exception e){
-    	//if executable (GPU) missing?
-        LOG.info("ERROR: "+((Integer.parseInt(e.getMessage())==1)?"GPU ":"CPU")+" executable is missing!");
-        throw new IOException(((Integer.parseInt(e.getMessage())==1)?"GPU":"CPU")+" executable is missing!");
+      executable = DistributedCache.getLocalCacheFiles(job)[(runOnGPU) ? 1 : 0]
+          .toString();
+    } catch (Exception e) {
+      // if executable (GPU) missing?
+      LOG.info("ERROR: "
+          + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
+          + " executable is missing!");
+      throw new IOException(((Integer.parseInt(e.getMessage()) == 1) ? "GPU"
+          : "CPU") + " executable is missing!");
     }
-    
+
     if (!new File(executable).canExecute()) {
       // LinuxTaskController sets +x permissions on all distcache files already.
       // In case of DefaultTaskController, set permissions here.
@@ -177,44 +166,34 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
     cmd.add(executable);
     // If runOnGPU add GPUDeviceId as parameter for GPUExecutable
     if (runOnGPU)
-    //  cmd.add(executable + " " + GPUDeviceId);
-    	cmd.add(Integer.toString(GPUDeviceId));
-    
+      // cmd.add(executable + " " + GPUDeviceId);
+      cmd.add(Integer.toString(GPUDeviceId));
+
     // wrap the command in a stdout/stderr capture
     TaskAttemptID taskid = TaskAttemptID.forName(job.get("mapred.task.id"));
     // we are starting map/reduce task of the pipes job. this is not a cleanup
-    // attempt. 
+    // attempt.
     File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
     File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
-    long logLength = TaskLog.getTaskLogLength((HamaConfiguration)job.getConf());
+    long logLength = TaskLog.getTaskLogLength((HamaConfiguration) job);
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
     LOG.info("DEBUG: cmd: " + cmd);
 
     process = runClient(cmd, env);
     clientSocket = serverSocket.accept();
-    
-    String challenge = getSecurityChallenge();
-    String digestToSend = createDigest(password, challenge);
-    String digestExpected = createDigest(password, digestToSend);
-    
-    handler = new OutputHandler<K2, V2>(output, recordReader,digestExpected);
-    K2 outputKey = (K2)
-      ReflectionUtils.newInstance(outputKeyClass, job.getConf());
-    V2 outputValue = (V2) 
-      ReflectionUtils.newInstance(outputValueClass, job.getConf());
-    downlink = new BinaryProtocol<K1, V1, K2, V2>(clientSocket, handler, 
-                                  outputKey, outputValue, job);
-    
-    downlink.authenticate(digestToSend, challenge);
-    waitForAuthentication();
-    LOG.debug("Authentication succeeded");
+
+    handler = new OutputHandler<K2, V2>(output, recordReader);
+    K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, job);
+    V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, job);
+    downlink = new BinaryProtocol<K1, V1, K2, V2>(clientSocket, handler,
+        outputKey, outputValue, job);
+
     downlink.start();
-    downlink.setBSPJob(job);
   }
 
   private String getSecurityChallenge() {
     Random rand = new Random(System.currentTimeMillis());
-    //Use 4 random integers so as to have 16 random bytes.
+    // Use 4 random integers so as to have 16 random bytes.
     StringBuilder strBuilder = new StringBuilder();
     strBuilder.append(rand.nextInt(0x7fffffff));
     strBuilder.append(rand.nextInt(0x7fffffff));
@@ -236,26 +215,16 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
   /**
    * Get the downward protocol object that can send commands down to the
    * application.
+   * 
    * @return the downlink proxy
    */
   DownwardProtocol<K1, V1> getDownlink() {
     return downlink;
   }
-  
-  /**
-   * Wait for authentication response.
-   * @throws IOException
-   * @throws InterruptedException
-   */
-  void waitForAuthentication() throws IOException,
-      InterruptedException {
-    downlink.flush();
-    LOG.debug("Waiting for authentication response");
-    handler.waitForAuthentication();
-  }
-  
+
   /**
    * Wait for the application to finish
+   * 
    * @return did the application finish correctly?
    * @throws Throwable
    */
@@ -266,6 +235,7 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
 
   /**
    * Abort the application and wait for it to finish.
+   * 
    * @param t the exception that signalled the problem
    * @throws IOException A wrapper around the exception that was passed in
    */
@@ -284,11 +254,12 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
     }
     IOException wrapper = new IOException("pipe child exception");
     wrapper.initCause(t);
-    throw wrapper;      
+    throw wrapper;
   }
-  
+
   /**
    * Clean up the child procress and socket.
+   * 
    * @throws IOException
    */
   void cleanup() throws IOException {
@@ -297,19 +268,20 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
       downlink.close();
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
-    }      
+    }
   }
 
   /**
    * Run a given command in a subprocess, including threads to copy its stdout
    * and stderr to our stdout and stderr.
+   * 
    * @param command the command and its arguments
    * @param env the environment to run the process in
    * @return a handle on the process
    * @throws IOException
    */
-  static Process runClient(List<String> command, 
-                           Map<String, String> env) throws IOException {
+  static Process runClient(List<String> command, Map<String, String> env)
+      throws IOException {
     ProcessBuilder builder = new ProcessBuilder(command);
     if (env != null) {
       builder.environment().putAll(env);
@@ -317,7 +289,7 @@ class Application<K1 extends WritableComparable, V1 extends Writable,
     Process result = builder.start();
     return result;
   }
-  
+
   public static String createDigest(byte[] password, String data)
       throws IOException {
     SecretKey key = JobTokenSecretManager.createSecretKey(password);
