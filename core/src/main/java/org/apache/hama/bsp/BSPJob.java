@@ -47,10 +47,7 @@ public class BSPJob extends BSPJobContext {
   private JobState state = JobState.DEFINE;
   private BSPJobClient jobClient;
   private RunningJob info;
-  /* MODIFICATIONS DONE */
-  private Credentials credentials = new Credentials();
-  /* MODIFICATIONS DONE */
-  
+ 
   public BSPJob() throws IOException {
     this(new HamaConfiguration());
   }
@@ -246,22 +243,11 @@ public class BSPJob extends BSPJobContext {
   }
   
   /* MODIFICATIONS DONE */
-  public void setBoolean(String name, Boolean value) {
+  public void setBoolean(String name, boolean value) {
 	  conf.setBoolean(name, value);
   }
-  public Boolean getBoolean(String name, Boolean defaultValue) {
+  public boolean getBoolean(String name, boolean defaultValue) {
 	  return conf.getBoolean(name, defaultValue);
-  }
-  /**
-   * Get credentials for the job.
-   * @return credentials for the job
-   */
-  public Credentials getCredentials() {
-    return credentials;
-  }
-  
-  void setCredentials(Credentials credentials) {
-    this.credentials = credentials;
   }
   /* MODIFICATIONS DONE */
   

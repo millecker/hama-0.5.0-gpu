@@ -45,25 +45,26 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPJob;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.InputSplit;
+import org.omg.CORBA.portable.Streamable;
 
 /**
  * This protocol is a binary implementation of the Pipes protocol.
  */
-class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
+class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable,
+	M extends Writable>
     implements DownwardProtocol<K1, V1> {
   
-  private static final Log LOG = LogFactory.getLog(BinaryProtocol.class
-      .getName());
+  private static final Log LOG = LogFactory.getLog(BinaryProtocol.class.getName());
   public static final int CURRENT_PROTOCOL_VERSION = 0;
   /**
    * The buffer size for the command socket
    */
   private static final int BUFFER_SIZE = 128 * 1024;
 
-  private DataOutputStream stream;
-  private DataOutputBuffer buffer = new DataOutputBuffer();
+  private final DataOutputStream stream;
+  private final DataOutputBuffer buffer = new DataOutputBuffer();
 
-  private UplinkReaderThread<?, ?> uplink;
+  private UplinkReaderThread uplink;
   //private Configuration conf;
 
   /**
@@ -71,10 +72,16 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    * C++ codes or massive confusion will result.
    */
   private static enum MessageType {
-    START(0), SET_JOB_CONF(1), SET_INPUT_TYPES(2), RUN_BSP(3), UPDATE_KEYVALUE(
-        4), CLOSE(8), ABORT(9), AUTHENTICATION_REQ(10), OUTPUT(50), PARTITIONED_OUTPUT(
+	  	START(0), SET_JOB_CONF(1), SET_INPUT_TYPES(2), 
+    	
+	  	RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(5),
+    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), 
+    	SEND_MSG(9), SYNC(10), REOPEN_INPUT(11), 
+    	GET_ALL_PEERNAME(12), GET_PEERNAME(13),
+    	
+    	CLOSE(47), ABORT(48), AUTHENTICATION_REQ(49), OUTPUT(50), PARTITIONED_OUTPUT(
         51), STATUS(52), PROGRESS(53), DONE(54), REGISTER_COUNTER(55), INCREMENT_COUNTER(
-        56), AUTHENTICATION_RESP(57);
+        56);
     final int code;
 
     MessageType(int code) {
@@ -82,7 +89,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     }
   }
 
-  private static class UplinkReaderThread<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
+  private class UplinkReaderThread
       extends Thread {
 
     private DataInputStream inStream;
@@ -93,8 +100,8 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
 
     public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, M> peer, InputStream stream,
        K2 key, V2 value) throws IOException {
-      inStream = new DataInputStream(new BufferedInputStream(stream,
-          BUFFER_SIZE));
+    	
+      inStream = new DataInputStream(new BufferedInputStream(stream,BUFFER_SIZE));
 
       this.peer = peer;
       this.key = key;
@@ -113,23 +120,42 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           }
           int cmd = WritableUtils.readVInt(inStream);
           LOG.debug("Handling uplink command " + cmd);
+          
           if (cmd == MessageType.OUTPUT.code) {
             readObject(key);
             readObject(value);
-            handler.output(key, value);
-          } else if (cmd == MessageType.REGISTER_COUNTER.code) {
-            int id = WritableUtils.readVInt(inStream);
-            String group = Text.readString(inStream);
-            String name = Text.readString(inStream);
-            handler.registerCounter(id, group, name);
+            peer.write(key, value);
+            
           } else if (cmd == MessageType.INCREMENT_COUNTER.code) {
-            int id = WritableUtils.readVInt(inStream);
+            String group = Text.readString(inStream);
+            String name = Text.readString(inStream); 
             long amount = WritableUtils.readVLong(inStream);
-            handler.incrementCounter(id, amount);
+            peer.incrementCounter(name,group, amount);
+            
           } else if (cmd == MessageType.DONE.code) {
             LOG.debug("Pipe child done");
-            handler.done();
             return;
+          } else if (cmd == MessageType.SEND_MSG.code) {
+        	  String peerName = Text.readString(inStream);
+        	  byte[] arr = new byte[WritableUtils.readVInt(inStream)];
+        	  inStream.readFully(arr, 0, arr.length);
+        	  M msg = (Writable) new BytesWritable(arr);
+        	  
+        	  peer.send(peerName, msg);
+        	 
+        	  
+          } else if (cmd == MessageType.SYNC.code) {
+          
+          } else if (cmd == MessageType.GET_ALL_PEERNAME.code) {
+              
+        	  WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
+        	  for (String s : peer.getAllPeerNames())
+        		  stream.writeUTF(s);
+        	  
+          } else if (cmd == MessageType.GET_PEERNAME.code) {
+        	  int id = WritableUtils.readVInt(inStream);
+        	  stream.writeUTF(peer.getPeerName(id));
+        	  
           } else {
             throw new IOException("Bad command code: " + cmd);
           }
@@ -137,8 +163,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           return;
         } catch (Throwable e) {
           LOG.error(StringUtils.stringifyException(e));
-          handler.failed(e);
-          return;
+          throw new RuntimeException(e);
         }
       }
     }
@@ -358,5 +383,12 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       stream.write(buffer.getData(), 0, length);
     }
   }
+
+
+	@Override
+	public boolean waitForFinish() throws IOException, InterruptedException {
+		// TODO Auto-generated method stub
+		return false;
+	}
 
 }

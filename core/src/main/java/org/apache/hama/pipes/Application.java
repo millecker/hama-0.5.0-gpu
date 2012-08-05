@@ -27,31 +27,20 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import javax.crypto.SecretKey;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
-import org.apache.hadoop.fs.FSDataOutputStream;
-import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.FileUtil;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.io.FloatWritable;
-import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
 import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.HamaConfiguration;
-import org.apache.hama.bsp.BSPJob;
 import org.apache.hama.bsp.BSPPeer;
-import org.apache.hama.bsp.OutputCollector;
-import org.apache.hama.bsp.RecordReader;
 import org.apache.hama.bsp.TaskAttemptID;
 import org.apache.hama.bsp.TaskLog;
 
@@ -146,32 +135,12 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, peer.getConfiguration());
     V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, peer.getConfiguration());
     
-    downlink = new BinaryProtocol<K1, V1, K2, V2>(peer,clientSocket,
+    downlink = new BinaryProtocol<K1, V1, K2, V2, M>(peer,clientSocket,
         outputKey, outputValue);
 
     downlink.start();
   }
 
-  private String getSecurityChallenge() {
-    Random rand = new Random(System.currentTimeMillis());
-    // Use 4 random integers so as to have 16 random bytes.
-    StringBuilder strBuilder = new StringBuilder();
-    strBuilder.append(rand.nextInt(0x7fffffff));
-    strBuilder.append(rand.nextInt(0x7fffffff));
-    strBuilder.append(rand.nextInt(0x7fffffff));
-    strBuilder.append(rand.nextInt(0x7fffffff));
-    return strBuilder.toString();
-  }
-
-  private void writePasswordToLocalFile(String localPasswordFile,
-      byte[] password, BSPJob jobConf) throws IOException {
-    FileSystem localFs = FileSystem.getLocal(jobConf.getConf());
-    Path localPath = new Path(localPasswordFile);
-    FSDataOutputStream out = FileSystem.create(localFs, localPath,
-        new FsPermission("400"));
-    out.write(password);
-    out.close();
-  }
 
   /**
    * Get the downward protocol object that can send commands down to the
@@ -191,7 +160,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
    */
   boolean waitForFinish() throws Throwable {
     downlink.flush();
-    return handler.waitForFinish();
+    return downlink.waitForFinish();
   }
 
   /**
@@ -209,7 +178,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
       // IGNORE cleanup problems
     }
     try {
-      handler.waitForFinish();
+    	downlink.waitForFinish();
     } catch (Throwable ignored) {
       process.destroy();
     }

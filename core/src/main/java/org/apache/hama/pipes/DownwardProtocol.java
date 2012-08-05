@@ -84,4 +84,7 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
    * Close the connection.
    */
   void close() throws IOException, InterruptedException;
+  
+  
+  boolean waitForFinish() throws IOException, InterruptedException;
 }
