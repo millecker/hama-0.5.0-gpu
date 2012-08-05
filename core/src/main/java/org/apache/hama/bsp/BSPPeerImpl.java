@@ -53,10 +53,7 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
   private static final Log LOG = LogFactory.getLog(BSPPeerImpl.class);
 
   public static enum PeerCounter {
-    SUPERSTEP_SUM, SUPERSTEPS, TASK_INPUT_RECORDS, TASK_OUTPUT_RECORDS,
-    IO_BYTES_READ, MESSAGE_BYTES_TRANSFERED, MESSAGE_BYTES_RECEIVED,
-    TOTAL_MESSAGES_SENT, TOTAL_MESSAGES_RECEIVED, COMPRESSED_BYTES_SENT,
-    COMPRESSED_BYTES_RECEIVED, TIME_IN_SYNC_MS
+    SUPERSTEP_SUM, SUPERSTEPS, TASK_INPUT_RECORDS, TASK_OUTPUT_RECORDS, IO_BYTES_READ, MESSAGE_BYTES_TRANSFERED, MESSAGE_BYTES_RECEIVED, TOTAL_MESSAGES_SENT, TOTAL_MESSAGES_RECEIVED, COMPRESSED_BYTES_SENT, COMPRESSED_BYTES_RECEIVED, TIME_IN_SYNC_MS
   }
 
   private final Configuration conf;
@@ -66,6 +63,7 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
   private TaskStatus currentTaskStatus;
 
   private TaskAttemptID taskId;
+
   private BSPPeerProtocol umbilical;
 
   private String[] allPeers;
@@ -469,6 +467,14 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
   @Override
   public final Configuration getConfiguration() {
     return conf;
+  }
+
+  /**
+   * Gets the task attempt id.
+   */
+  @Override
+  public TaskAttemptID getTaskId() {
+    return taskId;
   }
 
   /*
