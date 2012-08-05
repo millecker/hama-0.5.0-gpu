@@ -35,7 +35,7 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
 
     Application<K1, V1, K2, V2, M> application = null;
     
-
+    
   }
 
   public void bsp(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException,

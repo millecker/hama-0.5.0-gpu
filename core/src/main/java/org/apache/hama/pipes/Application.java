@@ -49,6 +49,7 @@ import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.HamaConfiguration;
 import org.apache.hama.bsp.BSPJob;
+import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.OutputCollector;
 import org.apache.hama.bsp.RecordReader;
 import org.apache.hama.bsp.TaskAttemptID;
@@ -64,8 +65,10 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
   private ServerSocket serverSocket;
   private Process process;
   private Socket clientSocket;
-  private OutputHandler<K2, V2> handler;
+  //private OutputHandler<K2, V2> handler;
   private DownwardProtocol<K1, V1> downlink;
+  private BSPPeer<K1, V1, K2, V2, M> peer;
+ 
   static final boolean WINDOWS = System.getProperty("os.name").startsWith(
       "Windows");
 
@@ -81,65 +84,20 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
    * @throws InterruptedException
    * @throws IOException
    */
-  Application(Configuration jobConfig,
-      RecordReader<FloatWritable, NullWritable> recordReader,
-      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
-      Class<? extends V2> outputValueClass) throws IOException,
-      InterruptedException {
-    this(jobConfig, recordReader, output, outputKeyClass, outputValueClass,
-        false);
-  }
-
-  /**
-   * Start the child process to handle the task for us.
-   * 
-   * @param conf the task's configuration
-   * @param recordReader the fake record reader to update progress with
-   * @param output the collector to send output to
-   * @param reporter the reporter for the task
-   * @param outputKeyClass the class of the output keys
-   * @param outputValueClass the class of the output values
-   * @param runOnGPU
-   * @throws IOException
-   * @throws InterruptedException
-   */
-  Application(Configuration jobConfig,
-      RecordReader<FloatWritable, NullWritable> recordReader,
-      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
-      Class<? extends V2> outputValueClass, boolean runOnGPU)
-      throws IOException, InterruptedException {
-    this(jobConfig, recordReader, output, outputKeyClass, outputValueClass,
-        runOnGPU, 0);
-  }
-
-  /**
-   * Start the child process to handle the task for us.
-   * 
-   * @param conf the task's configuration
-   * @param recordReader the fake record reader to update progress with
-   * @param output the collector to send output to
-   * @param reporter the reporter for the task
-   * @param outputKeyClass the class of the output keys
-   * @param outputValueClass the class of the output values
-   * @param runOnGPU
-   * @throws IOException
-   * @throws InterruptedException
-   */
-  Application(Configuration job,
-      RecordReader<FloatWritable, NullWritable> recordReader,
-      OutputCollector<K2, V2> output, Class<? extends K2> outputKeyClass,
-      Class<? extends V2> outputValueClass, boolean runOnGPU, int GPUDeviceId)
-      throws IOException, InterruptedException {
+  Application(BSPPeer<K1, V1, K2, V2, M> peer, Class<? extends K2> outputKeyClass, 
+		  Class<? extends V2> outputValueClass) 
+		  throws IOException, InterruptedException {
+ 
+	this.peer = peer;
 
     serverSocket = new ServerSocket(0);
     Map<String, String> env = new HashMap<String, String>();
     // add TMPDIR environment variable with the value of java.io.tmpdir
     env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
-    env.put("hadoop.pipes.command.port",
-        Integer.toString(serverSocket.getLocalPort()));
+    env.put("hama.pipes.command.port",Integer.toString(serverSocket.getLocalPort()));
 
     List<String> cmd = new ArrayList<String>();
-    String interpretor = job.get("hadoop.pipes.executable.interpretor");
+    String interpretor = peer.getConfiguration().get("hama.pipes.executable.interpretor");
     if (interpretor != null) {
       cmd.add(interpretor);
     }
@@ -147,8 +105,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      executable = DistributedCache.getLocalCacheFiles(job)[(runOnGPU) ? 1 : 0]
-          .toString();
+      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0].toString();
     } catch (Exception e) {
       // if executable (GPU) missing?
       LOG.info("ERROR: "
@@ -165,28 +122,32 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     }
     cmd.add(executable);
     // If runOnGPU add GPUDeviceId as parameter for GPUExecutable
-    if (runOnGPU)
+    
+    //if (runOnGPU)
       // cmd.add(executable + " " + GPUDeviceId);
-      cmd.add(Integer.toString(GPUDeviceId));
-
+    //  cmd.add(Integer.toString(GPUDeviceId));
+      
     // wrap the command in a stdout/stderr capture
-    TaskAttemptID taskid = TaskAttemptID.forName(job.get("mapred.task.id"));
+    TaskAttemptID taskid = peer.getTaskId();
     // we are starting map/reduce task of the pipes job. this is not a cleanup
     // attempt.
     File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
     File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
-    long logLength = TaskLog.getTaskLogLength((HamaConfiguration) job);
+    long logLength = TaskLog.getTaskLogLength((HamaConfiguration) peer.getConfiguration());
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
+    
     LOG.info("DEBUG: cmd: " + cmd);
 
-    process = runClient(cmd, env);
+    process = runClient(cmd, env); //fork c++ binary
     clientSocket = serverSocket.accept();
-
-    handler = new OutputHandler<K2, V2>(output, recordReader);
-    K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, job);
-    V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, job);
-    downlink = new BinaryProtocol<K1, V1, K2, V2>(clientSocket, handler,
-        outputKey, outputValue, job);
+    
+    //handler = new OutputHandler<K2, V2>(output, recordReader);
+    
+    K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, peer.getConfiguration());
+    V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, peer.getConfiguration());
+    
+    downlink = new BinaryProtocol<K1, V1, K2, V2>(peer,clientSocket,
+        outputKey, outputValue);
 
     downlink.start();
   }

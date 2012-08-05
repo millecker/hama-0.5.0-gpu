@@ -43,12 +43,13 @@ import org.apache.hadoop.io.WritableComparable;
 import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPJob;
+import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.InputSplit;
 
 /**
  * This protocol is a binary implementation of the Pipes protocol.
  */
-class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
+class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
     implements DownwardProtocol<K1, V1> {
   
   private static final Log LOG = LogFactory.getLog(BinaryProtocol.class
@@ -63,7 +64,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
   private DataOutputBuffer buffer = new DataOutputBuffer();
 
   private UplinkReaderThread<?, ?> uplink;
-  private Configuration conf;
+  //private Configuration conf;
 
   /**
    * The integer codes to represent the different messages. These must match the
@@ -81,19 +82,21 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     }
   }
 
-  private static class UplinkReaderThread<K2 extends Writable, V2 extends Writable>
+  private static class UplinkReaderThread<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
       extends Thread {
 
     private DataInputStream inStream;
-    private UpwardProtocol<K2, V2> handler;
+    //private UpwardProtocol<K1, V1, K2, V2, M> handler;
     private K2 key;
     private V2 value;
+    private BSPPeer<K1, V1, K2, V2, M> peer;
 
-    public UplinkReaderThread(InputStream stream,
-        UpwardProtocol<K2, V2> handler, K2 key, V2 value) throws IOException {
+    public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, M> peer, InputStream stream,
+       K2 key, V2 value) throws IOException {
       inStream = new DataInputStream(new BufferedInputStream(stream,
           BUFFER_SIZE));
-      this.handler = handler;
+
+      this.peer = peer;
       this.key = key;
       this.value = value;
     }
@@ -205,16 +208,17 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    * @param jobConfig The job's configuration
    * @throws IOException
    */
-  public BinaryProtocol(Socket sock, UpwardProtocol<K2, V2> handler, K2 key,
-      V2 value, Configuration jobConfig) throws IOException {
+  public BinaryProtocol(BSPPeer<K1, V1, K2, V2, M> peer, Socket sock, 
+		  K2 key,V2 value) throws IOException {
     OutputStream raw = sock.getOutputStream();
+    
     // If we are debugging, save a copy of the downlink commands to a file
-    if (Submitter.getKeepCommandFile(jobConfig)) {
+    if (Submitter.getKeepCommandFile(peer.getConfiguration())) {
       raw = new TeeOutputStream("downlink.data", raw);
     }
     stream = new DataOutputStream(new BufferedOutputStream(raw, BUFFER_SIZE));
-    uplink = new UplinkReaderThread<K2, V2>(sock.getInputStream(), handler,
-        key, value);
+    uplink = new UplinkReaderThread<K2, V2>(peer,sock.getInputStream(), key, value);
+    
     uplink.setName("pipe-uplink-handler");
     uplink.start();
   }

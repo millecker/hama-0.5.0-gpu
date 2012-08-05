@@ -182,5 +182,5 @@ public interface BSPPeer<K1, V1, K2, V2, M extends Writable> extends Constants {
   /**
    * Returns the task attempt id of this task.
    */
-  public void TaskAttemptID getTaskId();
+  public TaskAttemptID getTaskId();
 }
