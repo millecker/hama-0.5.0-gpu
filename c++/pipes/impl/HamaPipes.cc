@@ -46,7 +46,10 @@ using namespace HadoopUtils;
 
 namespace HamaPipes {
 
-  class JobConfImpl: public JobConf {
+  /********************************************/
+  /****************** BSPJob ******************/  
+  /********************************************/
+  class BSPJobImpl: public BSPJob {
   private:
     map<string, string> values;
   public:
@@ -61,7 +64,7 @@ namespace HamaPipes {
     virtual const string& get(const string& key) const {
       map<string,string>::const_iterator itr = values.find(key);
       if (itr == values.end()) {
-        throw Error("Key " + key + " not found in JobConf");
+        throw Error("Key " + key + " not found in BSPJob");
       }
       return itr->second;
     }
@@ -81,226 +84,86 @@ namespace HamaPipes {
       return toBool(val);
     }
   };
-
+    
+  /********************************************/
+  /************* DownwardProtocol *************/  
+  /********************************************/
   class DownwardProtocol {
   public:
     virtual void start(int protocol) = 0;
-    virtual void setJobConf(vector<string> values) = 0;
+    virtual void setBSPJob(vector<string> values) = 0;
     virtual void setInputTypes(string keyType, string valueType) = 0;
-    virtual void runMap(string inputSplit, int numReduces, bool pipedInput)= 0;
-    virtual void mapItem(const string& key, const string& value) = 0;
-    virtual void runReduce(int reduce, bool pipedOutput) = 0;
-    virtual void reduceKey(const string& key) = 0;
-    virtual void reduceValue(const string& value) = 0;
+    virtual void setKeyValue(const string& _key, const string& _value) = 0;
+      
+    virtual void runBsp(bool pipedInput, bool pipedOutput) = 0;
+    virtual void runCleanup(bool pipedInput, bool pipedOutput) = 0;
+    virtual void runSetup(bool pipedInput, bool pipedOutput) = 0;
+      
+    virtual void setNewResult(int value) = 0;
+    virtual void setNewResult(const string&  value) = 0;
+    virtual void setNewResult(vector<string> value) = 0;
+      
+    //virtual void reduceKey(const string& key) = 0;
+    //virtual void reduceValue(const string& value) = 0;
     virtual void close() = 0;
     virtual void abort() = 0;
     virtual ~DownwardProtocol() {}
   };
 
+  /********************************************/
+  /************** UpwardProtocol **************/  
+  /********************************************/
   class UpwardProtocol {
   public:
-    virtual void output(const string& key, const string& value) = 0;
-    virtual void partitionedOutput(int reduce, const string& key,
-                                   const string& value) = 0;
-    virtual void status(const string& message) = 0;
-    virtual void progress(float progress) = 0;
+      
+    virtual void sendMessage(const string& peerName, const string& msg);
+    virtual void getMessage() = 0;
+    virtual void getMessageCount() = 0;
+    virtual void sync() = 0;
+    //virtual void getSuperstepCount() = 0;
+    virtual void getPeerName(int index) = 0;
+    //virtual void getPeerIndex() = 0;
+    virtual void getAllPeerNames() = 0;
+    //virtual void getNumPeers() = 0;
+    //virtual void clear() = 0;
+    virtual void writeKeyValue(const string& key, const string& value) = 0; 
+    virtual void readNext() = 0;
+    virtual void reopenInput() = 0;
     virtual void done() = 0;
-    virtual void registerCounter(int id, const string& group, 
-                                 const string& name) = 0;
-    virtual void 
-      incrementCounter(const TaskContext::Counter* counter, uint64_t amount) = 0;
+    
+    //virtual void registerCounter(int id, const string& group, const string& name) = 0;
+    //virtual void incrementCounter(const TaskContext::Counter* counter, uint64_t amount) = 0;
+    virtual void incrementCounter(const string& group, const string& name, uint64_t amount) = 0;
     virtual ~UpwardProtocol() {}
   };
-
+    
+  /********************************************/
+  /***************** Protocol *****************/  
+  /********************************************/
   class Protocol {
   public:
     virtual void nextEvent() = 0;
     virtual UpwardProtocol* getUplink() = 0;
     virtual ~Protocol() {}
   };
-
-  class TextUpwardProtocol: public UpwardProtocol {
-  private:
-    FILE* stream;
-    static const char fieldSeparator = '\t';
-    static const char lineSeparator = '\n';
-
-    void writeBuffer(const string& buffer) {
-      fprintf(stream, quoteString(buffer, "\t\n").c_str());
-    }
-
-  public:
-    TextUpwardProtocol(FILE* _stream): stream(_stream) {}
     
-    virtual void output(const string& key, const string& value) {
-      fprintf(stream, "output%c", fieldSeparator);
-      writeBuffer(key);
-      fprintf(stream, "%c", fieldSeparator);
-      writeBuffer(value);
-      fprintf(stream, "%c", lineSeparator);
-    }
-
-    virtual void partitionedOutput(int reduce, const string& key,
-                                   const string& value) {
-      fprintf(stream, "parititionedOutput%c%d%c", fieldSeparator, reduce, 
-              fieldSeparator);
-      writeBuffer(key);
-      fprintf(stream, "%c", fieldSeparator);
-      writeBuffer(value);
-      fprintf(stream, "%c", lineSeparator);
-    }
-
-    virtual void status(const string& message) {
-      fprintf(stream, "status%c%s%c", fieldSeparator, message.c_str(), 
-              lineSeparator);
-    }
-
-    virtual void progress(float progress) {
-      fprintf(stream, "progress%c%f%c", fieldSeparator, progress, 
-              lineSeparator);
-    }
-
-    virtual void registerCounter(int id, const string& group, 
-                                 const string& name) {
-      fprintf(stream, "registerCounter%c%d%c%s%c%s%c", fieldSeparator, id,
-              fieldSeparator, group.c_str(), fieldSeparator, name.c_str(), 
-              lineSeparator);
-    }
-
-    virtual void incrementCounter(const TaskContext::Counter* counter, 
-                                  uint64_t amount) {
-      fprintf(stream, "incrCounter%c%d%c%ld%c", fieldSeparator, counter->getId(), 
-              fieldSeparator, (long)amount, lineSeparator);
-    }
+  /********************************************/
+  /*************** MESSAGE_TYPE ***************/  
+  /********************************************/
+  enum MESSAGE_TYPE {START_MESSAGE, SET_BSPJOB_CONF, SET_INPUT_TYPES,       
+      RUN_SETUP, RUN_BSP, RUN_CLEANUP,
+      READ_KEYVALUE, WRITE_KEYVALUE, GET_MSG, GET_MSG_COUNT, 
+      SEND_MSG, SYNC, 
+      GET_ALL_PEERNAME, GET_PEERNAME,
+      REOPEN_INPUT,
+                     
+      CLOSE=47, ABORT,
+      DONE, REGISTER_COUNTER, INCREMENT_COUNTER};
     
-    virtual void done() {
-      fprintf(stream, "done%c", lineSeparator);
-    }
-  };
 
-  class TextProtocol: public Protocol {
-  private:
-    FILE* downStream;
-    DownwardProtocol* handler;
-    UpwardProtocol* uplink;
-    string key;
-    string value;
-
-    int readUpto(string& buffer, const char* limit) {
-      int ch;
-      buffer.clear();
-      while ((ch = getc(downStream)) != -1) {
-        if (strchr(limit, ch) != NULL) {
-          return ch;
-        }
-        buffer += ch;
-      }
-      return -1;
-    }
-
-    static const char* delim;
-  public:
-
-    TextProtocol(FILE* down, DownwardProtocol* _handler, FILE* up) {
-      downStream = down;
-      uplink = new TextUpwardProtocol(up);
-      handler = _handler;
-    }
-
-    UpwardProtocol* getUplink() {
-      return uplink;
-    }
-
-    virtual void nextEvent() {
-      string command;
-      string arg;
-      int sep;
-      sep = readUpto(command, delim);
-      if (command == "mapItem") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(key, delim);
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(value, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->mapItem(key, value);
-      } else if (command == "reduceValue") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(value, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->reduceValue(value);
-      } else if (command == "reduceKey") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(key, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->reduceKey(key);
-      } else if (command == "start") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(arg, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->start(toInt(arg));
-      } else if (command == "setJobConf") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(arg, delim);
-        int len = toInt(arg);
-        vector<string> values(len);
-        for(int i=0; i < len; ++i) {
-          HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-          sep = readUpto(arg, delim);
-          values.push_back(arg);
-        }
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->setJobConf(values);
-      } else if (command == "setInputTypes") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(key, delim);
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(value, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->setInputTypes(key, value);
-      } else if (command == "runMap") {
-        string split;
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(split, delim);
-        string reduces;
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(reduces, delim);
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(arg, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->runMap(split, toInt(reduces), toBool(arg));
-      } else if (command == "runReduce") {
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        sep = readUpto(arg, delim);
-        HADOOP_ASSERT(sep == '\t', "Short text protocol command " + command);
-        string piped;
-        sep = readUpto(piped, delim);
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->runReduce(toInt(arg), toBool(piped));
-      } else if (command == "abort") { 
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->abort();
-      } else if (command == "close") {
-        HADOOP_ASSERT(sep == '\n', "Long text protocol command " + command);
-        handler->close();
-      } else {
-        throw Error("Illegal text protocol command " + command);
-      }
-    }
-
-    ~TextProtocol() {
-      delete uplink;
-    }
-  };
-  const char* TextProtocol::delim = "\t\n";
-
-  enum MESSAGE_TYPE {START_MESSAGE, SET_JOB_CONF, SET_INPUT_TYPES, RUN_MAP, 
-                     MAP_ITEM, RUN_REDUCE, REDUCE_KEY, REDUCE_VALUE, 
-      
-                      CLOSE, ABORT, AUTHENTICATION_REQ,
-      
-                     OUTPUT=50, PARTITIONED_OUTPUT, STATUS, PROGRESS, DONE,
-                     REGISTER_COUNTER, INCREMENT_COUNTER, AUTHENTICATION_RESP};
-
+  /********************************************/
+  /*********** BinaryUpwardProtocol ***********/  
+  /********************************************/
   class BinaryUpwardProtocol: public UpwardProtocol {
   private:
     FileOutStream* stream;
@@ -310,41 +173,63 @@ namespace HamaPipes {
       HADOOP_ASSERT(stream->open(_stream), "problem opening stream");
     }
 
+    /*
     virtual void authenticate(const string &responseDigest) {
       serializeInt(AUTHENTICATION_RESP, *stream);
       serializeString(responseDigest, *stream);
       stream->flush();
     }
+    */
 
-    virtual void output(const string& key, const string& value) {
-      serializeInt(OUTPUT, *stream);
-      serializeString(key, *stream);
-      serializeString(value, *stream);
-    }
-
-    virtual void partitionedOutput(int reduce, const string& key,
-                                   const string& value) {
-      serializeInt(PARTITIONED_OUTPUT, *stream);
-      serializeInt(reduce, *stream);
-      serializeString(key, *stream);
-      serializeString(value, *stream);
-    }
-
-    virtual void status(const string& message) {
-      serializeInt(STATUS, *stream);
-      serializeString(message, *stream);
-    }
-
-    virtual void progress(float progress) {
-      serializeInt(PROGRESS, *stream);
-      serializeFloat(progress, *stream);
+    virtual void sendMessage(const string& peerName, const string& msg) {
+      serializeInt(SEND_MSG, *stream);
+      serializeString(peerName, *stream);
+      serializeInt(msg.size(), *stream);
+      serializeString(msg, *stream);
       stream->flush();
     }
+    virtual void getMessage(){
+      serializeInt(GET_MSG, *stream);
+    } 
+    virtual void getMessageCount(){
+      serializeInt(GET_MSG_COUNT, *stream);
+    } 
+    virtual void sync(){
+      serializeInt(SYNC, *stream);
+    } 
+    //virtual void getSuperstepCount() = 0;
+    
+    virtual void getPeerName(int index){
+      serializeInt(GET_PEERNAME, *stream);
+      serializeInt(index, *stream);
+    } 
+    //virtual void getPeerIndex() = 0;
+    virtual void getAllPeerNames(){
+      serializeInt(GET_ALL_PEERNAME, *stream);
+    } 
 
+    //virtual void getNumPeers() = 0;
+    //virtual void clear() = 0;
+     
+    virtual void writeKeyValue(const string& key, const string& value) {
+      serializeInt(WRITE_KEYVALUE, *stream);
+      serializeString(key, *stream);
+      serializeString(value, *stream);
+      stream->flush();
+    }
+      
+    virtual void readNext() {
+        serializeInt(READ_KEYVALUE, *stream);
+    }
+      
+    virtual void reopenInput() {
+        serializeInt(REOPEN_INPUT, *stream);
+    }
     virtual void done() {
       serializeInt(DONE, *stream);
     }
 
+    /*
     virtual void registerCounter(int id, const string& group, 
                                  const string& name) {
       serializeInt(REGISTER_COUNTER, *stream);
@@ -352,30 +237,42 @@ namespace HamaPipes {
       serializeString(group, *stream);
       serializeString(name, *stream);
     }
-
     virtual void incrementCounter(const TaskContext::Counter* counter, 
                                   uint64_t amount) {
       serializeInt(INCREMENT_COUNTER, *stream);
       serializeInt(counter->getId(), *stream);
       serializeLong(amount, *stream);
     }
-    
+     */
+    virtual void incrementCounter(const string& group, const string& name, uint64_t amount) {
+        serializeInt(INCREMENT_COUNTER, *stream);
+        serializeString(group, *stream);
+        serializeString(name, *stream);
+        serializeLong(amount, *stream);
+    }
+      
     ~BinaryUpwardProtocol() {
       delete stream;
     }
   };
 
+  /********************************************/
+  /************** BinaryProtocol **************/  
+  /********************************************/
   class BinaryProtocol: public Protocol {
   private:
     FileInStream* downStream;
     DownwardProtocol* handler;
     BinaryUpwardProtocol * uplink;
+      
     string key;
     string value;
+    /*
     string password;
     bool authDone;
+      
     void getPassword(string &password) {
-      const char *passwordFile = getenv("hadoop.pipes.shared.secret.location");
+      const char *passwordFile = getenv("hama.pipes.shared.secret.location");
       if (passwordFile == NULL) {
         return;
       }
@@ -393,7 +290,8 @@ namespace HamaPipes {
       delete [] passBuff;
       return; 
     }
-
+    
+    
     void verifyDigestAndRespond(string& digest, string& challenge) {
       if (password.empty()) {
         //password can be empty if process is running in debug mode from
@@ -419,6 +317,7 @@ namespace HamaPipes {
         return false;
       }
     }
+
 
     string createDigest(string &password, string& msg) {
       HMAC_CTX ctx;
@@ -448,6 +347,7 @@ namespace HamaPipes {
 
       return string(digestBuffer);
     }
+    */
 
   public:
     BinaryProtocol(FILE* down, DownwardProtocol* _handler, FILE* up) {
@@ -455,40 +355,47 @@ namespace HamaPipes {
       downStream->open(down);
       uplink = new BinaryUpwardProtocol(up);
       handler = _handler;
-      authDone = false;
-      getPassword(password);
+      
+      //authDone = false;
+      //getPassword(password);
     }
 
     UpwardProtocol* getUplink() {
       return uplink;
     }
 
+      
     virtual void nextEvent() {
       int32_t cmd;
       cmd = deserializeInt(*downStream);
+      
+      /*
       if (!authDone && cmd != AUTHENTICATION_REQ) {
         //Authentication request must be the first message if
         //authentication is not complete
         std::cerr << "Command:" << cmd << "received before authentication. " 
             << "Exiting.." << std::endl;
         exit(-1);
-      }
+      }*/
+    
       switch (cmd) {
-      case AUTHENTICATION_REQ: {
+              
+      /*case AUTHENTICATION_REQ: {
         string digest;
         string challenge;
         deserializeString(digest, *downStream);
         deserializeString(challenge, *downStream);
         verifyDigestAndRespond(digest, challenge);
         break;
-      }
+      }*/
+              
       case START_MESSAGE: {
         int32_t prot;
         prot = deserializeInt(*downStream);
         handler->start(prot);
         break;
       }
-      case SET_JOB_CONF: {
+      case SET_BSPJOB_CONF: {
         int32_t entries;
         entries = deserializeInt(*downStream);
         vector<string> result(entries);
@@ -497,7 +404,7 @@ namespace HamaPipes {
           deserializeString(item, *downStream);
           result.push_back(item);
         }
-        handler->setJobConf(result);
+        handler->setBSPJob(result);
         break;
       }
       case SET_INPUT_TYPES: {
@@ -508,22 +415,75 @@ namespace HamaPipes {
         handler->setInputTypes(keyType, valueType);
         break;
       }
-      case RUN_MAP: {
-        string split;
-        int32_t numReduces;
-        int32_t piped;
-        deserializeString(split, *downStream);
-        numReduces = deserializeInt(*downStream);
-        piped = deserializeInt(*downStream);
-        handler->runMap(split, numReduces, piped);
-        break;
-      }
-      case MAP_ITEM: {
+      case READ_KEYVALUE: {
         deserializeString(key, *downStream);
         deserializeString(value, *downStream);
-        handler->mapItem(key, value);
+        handler->setKeyValue(key, value);
         break;
       }
+      case RUN_SETUP: {
+        //string split;
+        int32_t pipedInput;
+        int32_t pipedOutput;
+        //deserializeString(split, *downStream);
+        pipedInput = deserializeInt(*downStream);
+        pipedOutput = deserializeInt(*downStream);
+        handler->runSetup(pipedInput, pipedOutput);
+        break;
+      }
+      case RUN_BSP: {
+        //string split;
+        int32_t pipedInput;
+        int32_t pipedOutput;
+        //deserializeString(split, *downStream);
+        pipedInput = deserializeInt(*downStream);
+        pipedOutput = deserializeInt(*downStream);
+        handler->runBsp(pipedInput, pipedOutput);
+        break;
+      }
+      case RUN_CLEANUP: {
+        //string split;
+        int32_t pipedInput;
+        int32_t pipedOutput;
+        //deserializeString(split, *downStream);
+        pipedInput = deserializeInt(*downStream);
+        pipedOutput = deserializeInt(*downStream);
+        handler->runCleanup(pipedInput, pipedOutput);
+        break;
+      }
+        
+      case GET_MSG_COUNT: {
+        int msgCount = deserializeInt(*downStream);
+        handler->setNewResult(msgCount);
+        break;
+      }
+      case GET_MSG: {
+        string msg;
+        deserializeString(msg,*downStream);
+        handler->setNewResult(msg);
+        break;
+      }
+      case GET_PEERNAME: {
+        string peername;
+        deserializeString(peername,*downStream);
+        handler->setNewResult(peername);
+        break;
+      }
+      case GET_ALL_PEERNAME: {
+        vector<string> peernames;
+        int peernameCount = deserializeInt(*downStream);
+        string peername;
+        for (int i=0; i<peernameCount; i++)  {
+          deserializeString(peername,*downStream);
+            peernames.push_back(peername);
+        }
+        handler->setNewResult(peernames);
+        break;
+      }
+      
+    
+
+    /*
       case RUN_REDUCE: {
         int32_t reduce;
         int32_t piped;
@@ -542,6 +502,9 @@ namespace HamaPipes {
         handler->reduceValue(value);
         break;
       }
+      */
+              
+              
       case CLOSE:
         handler->close();
         break;
@@ -552,166 +515,20 @@ namespace HamaPipes {
         HADOOP_ASSERT(false, "Unknown binary command " + toString(cmd));
       }
     }
-
+      
     virtual ~BinaryProtocol() {
       delete downStream;
       delete uplink;
     }
   };
 
-  /**
-   * Define a context object to give to combiners that will let them
-   * go through the values and emit their results correctly.
-   */
-  class CombineContext: public ReduceContext {
-  private:
-    ReduceContext* baseContext;
-    Partitioner* partitioner;
-    int numReduces;
-    UpwardProtocol* uplink;
-    bool firstKey;
-    bool firstValue;
-    map<string, vector<string> >::iterator keyItr;
-    map<string, vector<string> >::iterator endKeyItr;
-    vector<string>::iterator valueItr;
-    vector<string>::iterator endValueItr;
-
-  public:
-    CombineContext(ReduceContext* _baseContext,
-                   Partitioner* _partitioner,
-                   int _numReduces,
-                   UpwardProtocol* _uplink,
-                   map<string, vector<string> >& data) {
-      baseContext = _baseContext;
-      partitioner = _partitioner;
-      numReduces = _numReduces;
-      uplink = _uplink;
-      keyItr = data.begin();
-      endKeyItr = data.end();
-      firstKey = true;
-      firstValue = true;
-    }
-
-    virtual const JobConf* getJobConf() {
-      return baseContext->getJobConf();
-    }
-
-    virtual const std::string& getInputKey() {
-      return keyItr->first;
-    }
-
-    virtual const std::string& getInputValue() {
-      return *valueItr;
-    }
-
-    virtual void emit(const std::string& key, const std::string& value) {
-      if (partitioner != NULL) {
-        uplink->partitionedOutput(partitioner->partition(key, numReduces),
-                                  key, value);
-      } else {
-        uplink->output(key, value);
-      }
-    }
-
-    virtual void progress() {
-      baseContext->progress();
-    }
-
-    virtual void setStatus(const std::string& status) {
-      baseContext->setStatus(status);
-    }
-
-    bool nextKey() {
-      if (firstKey) {
-        firstKey = false;
-      } else {
-        ++keyItr;
-      }
-      if (keyItr != endKeyItr) {
-        valueItr = keyItr->second.begin();
-        endValueItr = keyItr->second.end();
-        firstValue = true;
-        return true;
-      }
-      return false;
-    }
-
-    virtual bool nextValue() {
-      if (firstValue) {
-        firstValue = false;
-      } else {
-        ++valueItr;
-      }
-      return valueItr != endValueItr;
-    }
-    
-    virtual Counter* getCounter(const std::string& group, 
-                               const std::string& name) {
-      return baseContext->getCounter(group, name);
-    }
-
-    virtual void incrementCounter(const Counter* counter, uint64_t amount) {
-      baseContext->incrementCounter(counter, amount);
-    }
-  };
-
-  /**
-   * A RecordWriter that will take the map outputs, buffer them up and then
-   * combine then when the buffer is full.
-   */
-  class CombineRunner: public RecordWriter {
-  private:
-    map<string, vector<string> > data;
-    int64_t spillSize;
-    int64_t numBytes;
-    ReduceContext* baseContext;
-    Partitioner* partitioner;
-    int numReduces;
-    UpwardProtocol* uplink;
-    Reducer* combiner;
-  public:
-    CombineRunner(int64_t _spillSize, ReduceContext* _baseContext, 
-                  Reducer* _combiner, UpwardProtocol* _uplink, 
-                  Partitioner* _partitioner, int _numReduces) {
-      numBytes = 0;
-      spillSize = _spillSize;
-      baseContext = _baseContext;
-      partitioner = _partitioner;
-      numReduces = _numReduces;
-      uplink = _uplink;
-      combiner = _combiner;
-    }
-
-    virtual void emit(const std::string& key,
-                      const std::string& value) {
-      numBytes += key.length() + value.length();
-      data[key].push_back(value);
-      if (numBytes >= spillSize) {
-        spillAll();
-      }
-    }
-
-    virtual void close() {
-      spillAll();
-    }
-
-  private:
-    void spillAll() {
-      CombineContext context(baseContext, partitioner, numReduces, 
-                             uplink, data);
-      while (context.nextKey()) {
-        combiner->reduce(context);
-      }
-      data.clear();
-      numBytes = 0;
-    }
-  };
-
-  class TaskContextImpl: public MapContext, public ReduceContext, 
-                         public DownwardProtocol {
+  /********************************************/
+  /************** BSPContextImpl **************/  
+  /********************************************/
+  class BSPContextImpl: public BSPContext, public DownwardProtocol {
   private:
     bool done;
-    JobConf* jobConf;
+    BSPJob* job;
     string key;
     const string* newKey;
     const string* value;
@@ -720,54 +537,69 @@ namespace HamaPipes {
     bool isNewValue;
     string* inputKeyClass;
     string* inputValueClass;
-    string status;
-    float progressFloat;
-    uint64_t lastProgress;
-    bool statusSet;
+    
+    //string status;
+    //float progressFloat;
+    //uint64_t lastProgress;
+    //bool statusSet;
+      
     Protocol* protocol;
     UpwardProtocol *uplink;
+    
     string* inputSplit;
+    
     RecordReader* reader;
-    Mapper* mapper;
-    Reducer* reducer;
     RecordWriter* writer;
-    Partitioner* partitioner;
-    int numReduces;
+      
+    BSP* bsp;
+    //Mapper* mapper;
+    
     const Factory* factory;
     pthread_mutex_t mutexDone;
     std::vector<int> registeredCounterIds;
+      
+    int resultInt;
+    bool isNewResultInt;  
+    const string* resultString;
+    bool isNewResultString;   
+    vector<string> resultVector;
+    bool isNewResultVector; 
 
   public:
 
-    TaskContextImpl(const Factory& _factory) {
-      statusSet = false;
+    BSPContextImpl(const Factory& _factory) {
+      //statusSet = false;
       done = false;
       newKey = NULL;
       factory = &_factory;
-      jobConf = NULL;
+      job = NULL;
+        
       inputKeyClass = NULL;
       inputValueClass = NULL;
+      
       inputSplit = NULL;
-      mapper = NULL;
-      reducer = NULL;
+      
+      bsp = NULL;
       reader = NULL;
       writer = NULL;
-      partitioner = NULL;
+      //partitioner = NULL;
       protocol = NULL;
       isNewKey = false;
       isNewValue = false;
-      lastProgress = 0;
-      progressFloat = 0.0f;
+      //lastProgress = 0;
+      //progressFloat = 0.0f;
       hasTask = false;
       pthread_mutex_init(&mutexDone, NULL);
+        
+      isNewResultInt = false;
+      isNewResultString = false,
+      isNewResultVector = false;
     }
 
-    void setProtocol(Protocol* _protocol, UpwardProtocol* _uplink) {
-
-      protocol = _protocol;
-      uplink = _uplink;
-    }
-
+  
+    /********************************************/
+    /*********** DownwardProtocol IMPL **********/  
+    /********************************************/
     virtual void start(int protocol) {
       if (protocol != 0) {
         throw Error("Protocol version " + toString(protocol) + 
@@ -775,77 +607,89 @@ namespace HamaPipes {
       }
     }
 
-    virtual void setJobConf(vector<string> values) {
+    virtual void setBSPJob(vector<string> values) {
       int len = values.size();
-      JobConfImpl* result = new JobConfImpl();
+      BSPJobImpl* result = new BSPJobImpl();
       HADOOP_ASSERT(len % 2 == 0, "Odd length of job conf values");
       for(int i=0; i < len; i += 2) {
         result->set(values[i], values[i+1]);
       }
-      jobConf = result;
+      job = result;
     }
 
     virtual void setInputTypes(string keyType, string valueType) {
       inputKeyClass = new string(keyType);
       inputValueClass = new string(valueType);
     }
-
-    virtual void runMap(string _inputSplit, int _numReduces, bool pipedInput) {
-      inputSplit = new string(_inputSplit);
-      reader = factory->createRecordReader(*this);
-      HADOOP_ASSERT((reader == NULL) == pipedInput,
-                    pipedInput ? "RecordReader defined when not needed.":
-                    "RecordReader not defined");
-      if (reader != NULL) {
-        value = new string();
-      }
-      mapper = factory->createMapper(*this);
-      numReduces = _numReduces;
-      if (numReduces != 0) { 
-        reducer = factory->createCombiner(*this);
-        partitioner = factory->createPartitioner(*this);
-      }
-      if (reducer != NULL) {
-        int64_t spillSize = 100;
-        if (jobConf->hasKey("io.sort.mb")) {
-          spillSize = jobConf->getInt("io.sort.mb");
+      
+    virtual void setKeyValue(const string& _key, const string& _value) {
+      newKey = &_key;
+      value = &_value;
+      isNewKey = true;
+    }
+     
+    /* private Method */
+    void setupReaderWriter(bool pipedInput, bool pipedOutput) {
+        
+      if (reader==NULL) {
+        reader = factory->createRecordReader(*this);
+        HADOOP_ASSERT((reader == NULL) == pipedInput,
+                      pipedInput ? "RecordReader defined when not needed.":
+                      "RecordReader not defined");
+        if (reader != NULL) {
+            value = new string();
         }
-        writer = new CombineRunner(spillSize * 1024 * 1024, this, reducer, 
-                                   uplink, partitioner, numReduces);
+      }  
+        
+      if (writer==NULL) {
+        writer = factory->createRecordWriter(*this);
+        HADOOP_ASSERT((writer == NULL) == pipedOutput,
+                      pipedOutput ? "RecordWriter defined when not needed.":
+                      "RecordWriter not defined");
       }
-      hasTask = true;
     }
-
-    virtual void mapItem(const string& _key, const string& _value) {
-      newKey = &_key;
-      value = &_value;
-      isNewKey = true;
+      
+    virtual void runSetup(bool pipedInput, bool pipedOutput) {
+      setupReaderWriter(pipedInput,pipedOutput);
+      
+      if (bsp == NULL)  
+        bsp = factory->createBSP(*this);
+        
+      if (bsp != NULL) {
+        bsp->setup(*this);
+      }
     }
-
-    virtual void runReduce(int reduce, bool pipedOutput) {
-      reducer = factory->createReducer(*this);
-      writer = factory->createRecordWriter(*this);
-      HADOOP_ASSERT((writer == NULL) == pipedOutput,
-                    pipedOutput ? "RecordWriter defined when not needed.":
-                    "RecordWriter not defined");
-      hasTask = true;
-    }
-
-    virtual void reduceKey(const string& _key) {
-      isNewKey = true;
-      newKey = &_key;
-    }
-
-    virtual void reduceValue(const string& _value) {
-      isNewValue = true;
-      value = &_value;
-    }
+      
+    virtual void runBsp(bool pipedInput, bool pipedOutput) {
+      setupReaderWriter(pipedInput,pipedOutput);
     
-    virtual bool isDone() {
-      pthread_mutex_lock(&mutexDone);
-      bool doneCopy = done;
-      pthread_mutex_unlock(&mutexDone);
-      return doneCopy;
+      if (bsp == NULL)  
+          bsp = factory->createBSP(*this);
+        
+      hasTask = true;
+    }
+      
+    virtual void runCleanup(bool pipedInput, bool pipedOutput) {
+      setupReaderWriter(pipedInput,pipedOutput);
+        
+      if (bsp != NULL) {
+        bsp->cleanup(*this);
+      }
+    }
+     
+    virtual void setNewResult(int value) {
+      resultInt = value;
+      isNewResultInt = true;  
+    }
+
+    virtual void setNewResult(const string& value) {
+      resultString = &value;
+      isNewResultString = true;   
+    }
+
+    virtual void setNewResult(vector<string> value) {
+      resultVector = value;
+      isNewResultVector = true;    
     }
 
     virtual void close() {
@@ -853,62 +697,20 @@ namespace HamaPipes {
       done = true;
       pthread_mutex_unlock(&mutexDone);
     }
-
+      
     virtual void abort() {
       throw Error("Aborted by driver");
     }
 
-    void waitForTask() {
-      while (!done && !hasTask) {
-        protocol->nextEvent();
-      }
-    }
-
-    bool nextKey() {
-      if (reader == NULL) {
-        while (!isNewKey) {
-          nextValue();
-          if (done) {
-            return false;
-          }
-        }
-        key = *newKey;
-      } else {
-        if (!reader->next(key, const_cast<string&>(*value))) {
-          pthread_mutex_lock(&mutexDone);
-          done = true;
-          pthread_mutex_unlock(&mutexDone);
-          return false;
-        }
-        progressFloat = reader->getProgress();
-      }
-      isNewKey = false;
-      if (mapper != NULL) {
-        mapper->map(*this);
-      } else {
-        reducer->reduce(*this);
-      }
-      return true;
-    }
-
+    /********************************************/
+    /************** TaskContext IMPL *************/  
+    /********************************************/
+    
     /**
-     * Advance to the next value.
+     * Get the BSPJob for the current task.
      */
-    virtual bool nextValue() {
-      if (isNewKey || done) {
-        return false;
-      }
-      isNewValue = false;
-      progress();
-      protocol->nextEvent();
-      return isNewValue;
-    }
-
-    /**
-     * Get the JobConf for the current task.
-     */
-    virtual JobConf* getJobConf() {
-      return jobConf;
+    virtual BSPJob* getBSPJob() {
+      return job;
     }
 
     /**
@@ -927,34 +729,37 @@ namespace HamaPipes {
     virtual const string& getInputValue() {
       return *value;
     }
-
+      
     /**
-     * Mark your task as having made progress without changing the status 
-     * message.
+     * Register a counter with the given group and name.
      */
-    virtual void progress() {
-      if (uplink != 0) {
-        uint64_t now = getCurrentMillis();
-        if (now - lastProgress > 1000) {
-          lastProgress = now;
-          if (statusSet) {
-            uplink->status(status);
-            statusSet = false;
-          }
-          uplink->progress(progressFloat);
-        }
-      }
-    }
-
+    /*
+    virtual Counter* getCounter(const std::string& group, 
+                                  const std::string& name) {
+        int id = registeredCounterIds.size();
+        registeredCounterIds.push_back(id);
+        uplink->registerCounter(id, group, name);
+        return new Counter(id);
+    }*/
+      
     /**
-     * Set the status message and call progress.
+     * Increment the value of the counter with the given amount.
      */
-    virtual void setStatus(const string& status) {
-      this->status = status;
-      statusSet = true;
-      progress();
+    virtual void incrementCounter(const string& group, const string& name, uint64_t amount)  {
+        uplink->incrementCounter(group, name, amount); 
     }
-
+      
+    /********************************************/
+    /************** BSPContext IMPL *************/  
+    /********************************************/
+      
+    /**
+     * Access the InputSplit of the mapper.
+     */
+    virtual const std::string& getInputSplit() {
+      return *inputSplit;
+    }
+      
     /**
      * Get the name of the key class of the input to this task.
      */
@@ -970,59 +775,222 @@ namespace HamaPipes {
     }
 
     /**
-     * Access the InputSplit of the mapper.
+     * Send a data with a tag to another BSPSlave corresponding to hostname.
+     * Messages sent by this method are not guaranteed to be received in a sent
+     * order.
      */
-    virtual const std::string& getInputSplit() {
-      return *inputSplit;
+    virtual void sendMessage(const string& peerName, const string& msg) {
+        uplink->sendMessage(peerName,msg);
     }
-
-    virtual void emit(const string& key, const string& value) {
-      progress();
-      if (writer != NULL) {
-        writer->emit(key, value);
-      } else if (partitioner != NULL) {
-        int part = partitioner->partition(key, numReduces);
-        uplink->partitionedOutput(part, key, value);
-      } else {
-        uplink->output(key, value);
-      }
+      
+    /**
+     * @return A message from the peer's received messages queue (a FIFO).
+     */
+    virtual const string& getCurrentMessage() {
+      uplink->getMessage();
+      
+      while (!isNewResultString)
+          protocol->nextEvent();
+        
+      isNewResultString = false;
+      return *resultString;
     }
 
     /**
-     * Register a counter with the given group and name.
+     * @return The number of messages in the peer's received messages queue.
      */
-    virtual Counter* getCounter(const std::string& group, 
-                               const std::string& name) {
-      int id = registeredCounterIds.size();
-      registeredCounterIds.push_back(id);
-      uplink->registerCounter(id, group, name);
-      return new Counter(id);
+    virtual int getNumCurrentMessages() {
+      uplink->getMessageCount();
+        
+      while (!isNewResultInt)
+        protocol->nextEvent();
+      
+      isNewResultInt = false;
+      return resultInt;
+    }
+      
+    /**
+     * Barrier Synchronization.
+     * 
+     * Sends all the messages in the outgoing message queues to the corresponding
+     * remote peers.
+     */
+    virtual void sync() {
+      uplink->sync();
+    }
+      
+    /**
+     * @return the count of current super-step
+     */
+    virtual long getSuperstepCount() {
+      return 0;
+    }
+    
+    /**
+     * @return the name of this peer in the format "hostname:port".
+     */ 
+    virtual const string& getPeerName() {
+      uplink->getPeerName(-1);
+    
+      while (!isNewResultString)
+        protocol->nextEvent();
+    
+      isNewResultString = false;
+      return *resultString;
+    }
+    
+    /**
+     * @return the name of n-th peer from sorted array by name.
+     */
+    virtual const string& getPeerName(int index) {
+      uplink->getPeerName(index);
+        
+      while (!isNewResultString)
+        protocol->nextEvent();
+        
+      isNewResultString = false;
+      return *resultString;
+    }
+      
+    /**
+     * @return the index of this peer from sorted array by name.
+     */
+    virtual int getPeerIndex() {
+      return 0;
+    }
+    
+    /**
+     * @return the names of all the peers executing tasks from the same job
+     *         (including this peer).
+     */
+    virtual vector<string> getAllPeerNames() {
+      uplink->getAllPeerNames();
+        
+      while (!isNewResultVector)
+        protocol->nextEvent();
+        
+      isNewResultVector = false;
+      return resultVector;
+    }
+    
+    /**
+     * @return the number of peers
+     */
+    virtual int getNumPeers() {
+      return 0;         
+    }
+    
+    /**
+     * Clears all queues entries.
+     */
+    virtual void clear() {
+          
     }
 
     /**
-     * Increment the value of the counter with the given amount.
+     * Writes a key/value pair to the output collector
      */
-    virtual void incrementCounter(const Counter* counter, uint64_t amount) {
-      uplink->incrementCounter(counter, amount); 
+    virtual void write(const string& key, const string& value) {
+        if (writer != NULL) {
+            writer->emit(key, value);
+        } else {
+            uplink->writeKeyValue(key, value);
+        }
     }
-
+    
+    /**
+     * Deserializes the next input key value into the given objects;
+     */
+    //virtual bool readNext(const string& key, const string& value) {
+    //  return protocol->readNext(key,value);
+    //}
+       
+    /**
+     * Closes the input and opens it right away, so that the file pointer is at
+     * the beginning again.
+     */
+    virtual void reopenInput() {
+      uplink->reopenInput();
+    }
+      
+      
+    /********************************************/
+    /*************** Other STUFF  ***************/  
+    /********************************************/
+      
+    void setProtocol(Protocol* _protocol, UpwardProtocol* _uplink) {
+        protocol = _protocol;
+        uplink = _uplink;
+    }
+   
+    virtual bool isDone() {
+        pthread_mutex_lock(&mutexDone);
+        bool doneCopy = done;
+        pthread_mutex_unlock(&mutexDone);
+        return doneCopy;
+    }
+      
+    /**
+     * Advance to the next value.
+     */
+    virtual bool nextValue() {
+        if (isNewKey || done) {
+            return false;
+        }
+        isNewValue = false;
+        //progress();
+        protocol->nextEvent();
+        return isNewValue;
+    } 
+      
+    void waitForTask() {
+        while (!done && !hasTask) {
+            protocol->nextEvent();
+        }
+    }
+      
+    bool nextKey() {
+        if (reader == NULL) {
+            while (!isNewKey) {
+                nextValue();
+                if (done) {
+                    return false;
+                }
+            }
+            key = *newKey;
+        } else {
+            if (!reader->next(key, const_cast<string&>(*value))) {
+                pthread_mutex_lock(&mutexDone);
+                done = true;
+                pthread_mutex_unlock(&mutexDone);
+                return false;
+            }
+            //progressFloat = reader->getProgress();
+        }
+        isNewKey = false;
+          
+        if (bsp != NULL) {
+            bsp->bsp(*this);
+        }
+        return true;
+    }
+   
     void closeAll() {
       if (reader) {
         reader->close();
       }
-      if (mapper) {
-        mapper->close();
+      
+      if (bsp) {
+        bsp->close();
       }
-      if (reducer) {
-        reducer->close();
-      }
+     
       if (writer) {
         writer->close();
       }
     }
-
-    virtual ~TaskContextImpl() {
-      delete jobConf;
+      
+    virtual ~BSPContextImpl() {
+      delete job;
       delete inputKeyClass;
       delete inputValueClass;
       delete inputSplit;
@@ -1030,10 +998,8 @@ namespace HamaPipes {
         delete value;
       }
       delete reader;
-      delete mapper;
-      delete reducer;
+      delete bsp;
       delete writer;
-      delete partitioner;
       pthread_mutex_destroy(&mutexDone);
     }
   };
@@ -1042,8 +1008,8 @@ namespace HamaPipes {
    * Ping the parent every 5 seconds to know if it is alive 
    */
   void* ping(void* ptr) {
-    TaskContextImpl* context = (TaskContextImpl*) ptr;
-    char* portStr = getenv("hadoop.pipes.command.port");
+    BSPContextImpl* context = (BSPContextImpl*) ptr;
+    char* portStr = getenv("hama.pipes.command.port");
     int MAX_RETRIES = 3;
     int remaining_retries = MAX_RETRIES;
     while (!context->isDone()) {
@@ -1094,9 +1060,10 @@ namespace HamaPipes {
    */
   bool runTask(const Factory& factory) {
     try {
-      TaskContextImpl* context = new TaskContextImpl(factory);
+      BSPContextImpl* context = new BSPContextImpl(factory);
       Protocol* connection;
-      char* portStr = getenv("hadoop.pipes.command.port");
+        
+      char* portStr = getenv("hama.pipes.command.port");
       int sock = -1;
       FILE* stream = NULL;
       FILE* outStream = NULL;
@@ -1128,27 +1095,35 @@ namespace HamaPipes {
         setbuf = setvbuf(outStream, bufout, _IOFBF, bufsize);
         HADOOP_ASSERT(setbuf == 0, string("problem with setvbuf for outStream: ")
                                      + strerror(errno));
+          
         connection = new BinaryProtocol(stream, context, outStream);
-      } else if (getenv("hadoop.pipes.command.file")) {
-        char* filename = getenv("hadoop.pipes.command.file");
+          
+      } else if (getenv("hama.pipes.command.file")) {
+        char* filename = getenv("hama.pipes.command.file");
         string outFilename = filename;
         outFilename += ".out";
         stream = fopen(filename, "r");
         outStream = fopen(outFilename.c_str(), "w");
         connection = new BinaryProtocol(stream, context, outStream);
       } else {
-        connection = new TextProtocol(stdin, context, stdout);
+        //connection = new TextProtocol(stdin, context, stdout);
       }
+        
       context->setProtocol(connection, connection->getUplink());
+        
       pthread_t pingThread;
       pthread_create(&pingThread, NULL, ping, (void*)(context));
       context->waitForTask();
+        
       while (!context->isDone()) {
         context->nextKey();
       }
+        
       context->closeAll();
       connection->getUplink()->done();
+      
       pthread_join(pingThread,NULL);
+      
       delete context;
       delete connection;
       if (stream != NULL) {
@@ -1174,7 +1149,7 @@ namespace HamaPipes {
       delete bufout;
       return true;
     } catch (Error& err) {
-      fprintf(stderr, "Hadoop Pipes Exception: %s\n", 
+      fprintf(stderr, "Hama Pipes Exception: %s\n", 
               err.getMessage().c_str());
       return false;
     }

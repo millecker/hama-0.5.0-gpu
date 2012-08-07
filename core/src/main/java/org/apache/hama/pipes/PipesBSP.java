@@ -27,7 +27,7 @@ import org.apache.hama.bsp.sync.SyncException;
 public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
     extends BSP<K1, V1, K2, V2, M> {
 
-	private Application<K1, V1, K2, V2, M> application; 
+  private Application<K1, V1, K2, V2, M> application; 
 	
   public void setup(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException,
       SyncException, InterruptedException {
@@ -57,7 +57,7 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
    * @throws IOException
    */
   public void cleanup(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException {
-	  application.getDownlink().runCleanup(false,false);
+	  application.getDownlink().runCleanup(false, false);
 	  application.cleanup();
   }
 

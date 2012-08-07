@@ -58,8 +58,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
   private DownwardProtocol<K1, V1> downlink;
   private BSPPeer<K1, V1, K2, V2, M> peer;
  
-  static final boolean WINDOWS = System.getProperty("os.name").startsWith(
-      "Windows");
+  static final boolean WINDOWS = System.getProperty("os.name").startsWith("Windows");
 
   /**
    * Start the child process to handle the task for us.
@@ -136,8 +135,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, peer.getConfiguration());
     V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, peer.getConfiguration());
     
-    downlink = new BinaryProtocol<K1, V1, K2, V2, M>(peer,clientSocket,
-        outputKey, outputValue);
+    downlink = new BinaryProtocol<K1, V1, K2, V2, M>(peer,clientSocket,outputKey, outputValue);
 
     downlink.start();
   }

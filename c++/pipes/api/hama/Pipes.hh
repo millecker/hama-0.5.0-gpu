@@ -21,17 +21,21 @@
 #ifdef SWIG
 %module (directors="1") HamaPipes
 %include "std_string.i"
-%feature("director") Mapper;
+%feature("director") BSP;
 %feature("director") Reducer;
-%feature("director") Partitioner;
 %feature("director") RecordReader;
 %feature("director") RecordWriter;
 %feature("director") Factory;
 #else
 #include <string>
+#include <vector>
 #endif
 
 #include <stdint.h>
+
+using std::string;
+using std::vector;
+
 
 namespace HamaPipes {
 
@@ -41,16 +45,16 @@ namespace HamaPipes {
  */
 
 /**
- * A JobConf defines the properties for a job.
+ * A BSPJob defines the properties for a job.
  */
-class JobConf {
+class BSPJob {
 public:
-  virtual bool hasKey(const std::string& key) const = 0;
-  virtual const std::string& get(const std::string& key) const = 0;
-  virtual int getInt(const std::string& key) const = 0;
-  virtual float getFloat(const std::string& key) const = 0;
-  virtual bool getBoolean(const std::string&key) const = 0;
-  virtual ~JobConf() {}
+  virtual bool hasKey(const string& key) const = 0;
+  virtual const string& get(const string& key) const = 0;
+  virtual int getInt(const string& key) const = 0;
+  virtual float getFloat(const string& key) const = 0;
+  virtual bool getBoolean(const string&key) const = 0;
+  virtual ~BSPJob() {}
 };
 
 /**
@@ -72,80 +76,160 @@ public:
   };
   
   /**
-   * Get the JobConf for the current task.
+   * Get the BSPJob for the current task.
    */
-  virtual const JobConf* getJobConf() = 0;
+  virtual const BSPJob* getBSPJob() = 0;
 
   /**
    * Get the current key. 
    * @return the current key
    */
-  virtual const std::string& getInputKey() = 0;
+  virtual const string& getInputKey() = 0;
 
   /**
    * Get the current value. 
    * @return the current value
    */
-  virtual const std::string& getInputValue() = 0;
+  virtual const string& getInputValue() = 0;
 
   /**
    * Generate an output record
    */
-  virtual void emit(const std::string& key, const std::string& value) = 0;
+  //virtual void emit(const string& key, const string& value) = 0;
 
   /**
    * Mark your task as having made progress without changing the status 
    * message.
    */
-  virtual void progress() = 0;
+  //virtual void progress() = 0;
 
   /**
    * Set the status message and call progress.
    */
-  virtual void setStatus(const std::string& status) = 0;
+  //virtual void setStatus(const string& status) = 0;
 
   /**
    * Register a counter with the given group and name.
    */
-  virtual Counter* 
-    getCounter(const std::string& group, const std::string& name) = 0;
+  //virtual Counter* getCounter(const string& group, const string& name) = 0;
 
   /**
    * Increment the value of the counter with the given amount.
    */
-  virtual void incrementCounter(const Counter* counter, uint64_t amount) = 0;
+  //virtual void incrementCounter(const Counter* counter, uint64_t amount) = 0;
+  virtual void incrementCounter(const string& group, const string& name, uint64_t amount) = 0;
   
   virtual ~TaskContext() {}
 };
 
-class MapContext: public TaskContext {
+class BSPContext: public TaskContext {
 public:
 
   /**
    * Access the InputSplit of the mapper.
    */
-  virtual const std::string& getInputSplit() = 0;
+  virtual const string& getInputSplit() = 0;
 
   /**
    * Get the name of the key class of the input to this task.
    */
-  virtual const std::string& getInputKeyClass() = 0;
+  virtual const string& getInputKeyClass() = 0;
 
   /**
    * Get the name of the value class of the input to this task.
    */
-  virtual const std::string& getInputValueClass() = 0;
-
-};
-
-class ReduceContext: public TaskContext {
-public:
+  virtual const string& getInputValueClass() = 0;
+    
+    
+    
   /**
-   * Advance to the next value.
+   * Send a data with a tag to another BSPSlave corresponding to hostname.
+   * Messages sent by this method are not guaranteed to be received in a sent
+   * order.
    */
-  virtual bool nextValue() = 0;
+  virtual void sendMessage(const string& peerName, const string& msg) = 0;
+    
+  /**
+   * @return A message from the peer's received messages queue (a FIFO).
+   */
+  virtual const string& getCurrentMessage() = 0;
+    
+  /**
+   * @return The number of messages in the peer's received messages queue.
+   */
+  virtual int getNumCurrentMessages();
+    
+  /**
+   * Barrier Synchronization.
+   * 
+   * Sends all the messages in the outgoing message queues to the corresponding
+   * remote peers.
+   */
+  virtual void sync() = 0;
+    
+  /**
+   * @return the count of current super-step
+   */
+  virtual long getSuperstepCount() = 0;
+     
+  /**
+   * @return the name of this peer in the format "hostname:port".
+   */ 
+  virtual const string& getPeerName() = 0;
+    
+  /**
+   * @return the name of n-th peer from sorted array by name.
+   */
+  virtual const string& getPeerName(int index) = 0;
+    
+  /**
+   * @return the index of this peer from sorted array by name.
+   */
+  virtual int getPeerIndex() = 0;
+    
+  /**
+   * @return the names of all the peers executing tasks from the same job
+   *         (including this peer).
+   */
+  virtual vector<string> getAllPeerNames() = 0;
+    
+  /**
+   * @return the number of peers
+   */
+  virtual int getNumPeers() = 0;
+    
+  /**
+   * Clears all queues entries.
+   */
+  virtual void clear() = 0;
+    
+  /**
+   * Writes a key/value pair to the output collector
+   */
+  virtual void write(const string& key, const string& value) = 0;
+    
+  /**
+   * Deserializes the next input key value into the given objects;
+   */
+  //virtual bool readNext(const string& key, const string& value) = 0;
+    
+    /**
+     * Reads the next key value pair and returns it as a pair. It may reuse a
+     * {@link KeyValuePair} instance to save garbage collection time.
+     * 
+     * @return null if there are no records left.
+     * @throws IOException
+     */
+    //public KeyValuePair<K1, V1> readNext() throws IOException;
+    
+  /**
+   * Closes the input and opens it right away, so that the file pointer is at
+   * the beginning again.
+   */
+  virtual void reopenInput() = 0;
+    
 };
-
+    
 class Closable {
 public:
   virtual void close() {}
@@ -153,37 +237,38 @@ public:
 };
 
 /**
- * The application's mapper class to do map.
+ * The application's BSP class to do bsp.
  */
-class Mapper: public Closable {
+class BSP: public Closable {
 public:
-  virtual void map(MapContext& context) = 0;
+  /**
+   * This method is called before the BSP method. It can be used for setup
+   * purposes.
+   */
+  virtual void setup(BSPContext& context) = 0;
+   
+  /**
+   * This method is your computation method, the main work of your BSP should be
+   * done here.
+   */
+  virtual void bsp(BSPContext& context) = 0;
+    
+  /**
+   * This method is called after the BSP method. It can be used for cleanup
+   * purposes. Cleanup is guranteed to be called after the BSP runs, even in
+   * case of exceptions.
+   */
+  virtual void cleanup(BSPContext& context) = 0;
 };
 
-/**
- * The application's reducer class to do reduce.
- */
-class Reducer: public Closable {
-public:
-  virtual void reduce(ReduceContext& context) = 0;
-};
-
-/**
- * User code to decide where each key should be sent.
- */
-class Partitioner {
-public:
-  virtual int partition(const std::string& key, int numOfReduces) = 0;
-  virtual ~Partitioner() {}
-};
-
+    
 /**
  * For applications that want to read the input directly for the map function
  * they can define RecordReaders in C++.
  */
 class RecordReader: public Closable {
 public:
-  virtual bool next(std::string& key, std::string& value) = 0;
+  virtual bool next(string& key, string& value) = 0;
 
   /**
    * The progress of the record reader through the split as a value between
@@ -197,8 +282,8 @@ public:
  */
 class RecordWriter: public Closable {
 public:
-  virtual void emit(const std::string& key,
-                    const std::string& value) = 0;
+  virtual void emit(const string& key,
+                    const string& value) = 0;
 };
 
 /**
@@ -206,32 +291,25 @@ public:
  */
 class Factory {
 public:
-  virtual Mapper* createMapper(MapContext& context) const = 0;
-  virtual Reducer* createReducer(ReduceContext& context) const = 0;
+  //virtual Mapper* createMapper(MapContext& context) const = 0;
+  //virtual Reducer* createReducer(ReduceContext& context) const = 0;
+    
+    virtual BSP* createBSP(BSPContext& context) const = 0;
 
   /**
    * Create a combiner, if this application has one.
    * @return the new combiner or NULL, if one is not needed
    */
-  virtual Reducer* createCombiner(MapContext& context) const {
-    return NULL; 
-  }
-
-  /**
-   * Create an application partitioner object.
-   * @return the new partitioner or NULL, if the default partitioner should be 
-   *     used.
-   */
-  virtual Partitioner* createPartitioner(MapContext& context) const {
-    return NULL;
-  }
+  //virtual Reducer* createReducer(BSPContext& context) const {
+  //  return NULL; 
+  //}
 
   /**
    * Create an application record reader.
    * @return the new RecordReader or NULL, if the Java RecordReader should be
    *    used.
    */
-  virtual RecordReader* createRecordReader(MapContext& context) const {
+  virtual RecordReader* createRecordReader(BSPContext& context) const {
     return NULL; 
   }
 
@@ -240,7 +318,7 @@ public:
    * @return the new RecordWriter or NULL, if the Java RecordWriter should be
    *    used.
    */
-  virtual RecordWriter* createRecordWriter(ReduceContext& context) const {
+  virtual RecordWriter* createRecordWriter(BSPContext& context) const {
     return NULL;
   }
 

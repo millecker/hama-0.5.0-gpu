@@ -55,7 +55,6 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
   void runSetup(boolean pipedInput, boolean pipedOutput)
 	      throws IOException;
 
-
   /**
    * The task should stop as soon as possible, because something has gone wrong.
    * 

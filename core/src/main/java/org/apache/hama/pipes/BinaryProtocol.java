@@ -62,23 +62,23 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
   private final DataOutputBuffer buffer = new DataOutputBuffer();
 
   private UplinkReaderThread uplink;
-  //private Configuration conf;
-
+  
   /**
    * The integer codes to represent the different messages. These must match the
    * C++ codes or massive confusion will result.
    */
   private static enum MessageType {
-	  	START(0), SET_JOB_CONF(1), SET_INPUT_TYPES(2), 
+	  	START(0), SET_BSPJOB_CONF(1), SET_INPUT_TYPES(2), 
     	
 	  	RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(5),
     	READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), GET_MSG_COUNT(9), 
     	SEND_MSG(10), SYNC(11), 
     	GET_ALL_PEERNAME(12), GET_PEERNAME(13),
-    	REOPEN_INPUT(14), END_OF_INPUT(15),
+    	REOPEN_INPUT(14), 
     	
-    	CLOSE(47), ABORT(48), AUTHENTICATION_REQ(49), OUTPUT(50), PARTITIONED_OUTPUT(
-        51), STATUS(52), PROGRESS(53), DONE(54), REGISTER_COUNTER(55), INCREMENT_COUNTER(56);
+    	CLOSE(47), ABORT(48), 
+    	DONE(49), REGISTER_COUNTER(50), INCREMENT_COUNTER(51);
+	  	
     final int code;
 
     MessageType(int code) {
@@ -115,76 +115,85 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
           }
+          
           int cmd = WritableUtils.readVInt(inStream);
           LOG.debug("Handling uplink command " + cmd);
+          LOG.info("Handling uplink command " + cmd);
           
-          if (cmd == MessageType.OUTPUT.code) {
-            readObject(key);
-            readObject(value);
-            peer.write(key, value);
-            
-          } else if (cmd == MessageType.INCREMENT_COUNTER.code) {
-            String group = Text.readString(inStream);
-            String name = Text.readString(inStream); 
-            long amount = WritableUtils.readVLong(inStream);
-            peer.incrementCounter(name,group, amount);
-            
-          } else if (cmd == MessageType.DONE.code) {
-            LOG.debug("Pipe child done");
-            return;
-            
-          } else if (cmd == MessageType.SEND_MSG.code) {
-        	  String peerName = Text.readString(inStream);
-        	  byte[] arr = new byte[WritableUtils.readVInt(inStream)];
-        	  inStream.readFully(arr, 0, arr.length);
-        	  M msg = (M) new BytesWritable(arr);
-        	  peer.send(peerName, msg);    
-        	  
-          } else if (cmd == MessageType.GET_MSG_COUNT.code) {
-        	  
-        	  WritableUtils.writeVInt(stream, peer.getNumCurrentMessages()); 
-        	  
-          } else if (cmd == MessageType.GET_MSG.code) {
-        	  
-        	  M msg = peer.getCurrentMessage();
-        	  if (msg!=null)
-        		  writeObject(msg);
-        	  
-          } else if (cmd == MessageType.SYNC.code) {
-        	  peer.sync();
-        	  
-          } else if (cmd == MessageType.GET_ALL_PEERNAME.code) {
-              
-        	  WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
-        	  for (String s : peer.getAllPeerNames())
-        		  stream.writeUTF(s);
-        	  
-          } else if (cmd == MessageType.GET_PEERNAME.code) {
-        	  int id = WritableUtils.readVInt(inStream);
-        	  stream.writeUTF(peer.getPeerName(id));
-        	  
-          } else if (cmd == MessageType.READ_KEYVALUE.code) {
-        	  KeyValuePair<K1,V1> pair = peer.readNext();
-        	  if (pair!=null) {
-        		  writeObject(pair.getKey());
-        		  writeObject(pair.getValue());
-        		  
-        	  } else {
-        		  /* TODO */
-        		  WritableUtils.writeVInt(stream,MessageType.END_OF_INPUT.code);
-        	  } 
-        	  
-          } else if (cmd == MessageType.WRITE_KEYVALUE.code) {
-        	  readObject(key);
-        	  readObject(value);
-        	  peer.write(key, value);
+          if (cmd == MessageType.WRITE_KEYVALUE.code) { //INCOMING
+        	readObject(key);
+          	readObject(value);
+          	peer.write(key, value);
           
-          } else if (cmd == MessageType.REOPEN_INPUT.code) {
-        	  peer.reopenInput();
-              	   	
+          } else if (cmd == MessageType.READ_KEYVALUE.code) { //OUTGOING
+        	KeyValuePair<K1,V1> pair = peer.readNext();
+          	if (pair!=null) {
+          		WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
+          		writeObject(pair.getKey());
+          		writeObject(pair.getValue());
+        	 
+       		} else {
+       			/* TODO */
+       			WritableUtils.writeVInt(stream,MessageType.CLOSE.code);
+          	} 
+          	
+          } else if (cmd == MessageType.INCREMENT_COUNTER.code) { //INCOMING
+        	//int id = WritableUtils.readVInt(inStream);
+        	String group = Text.readString(inStream);
+       		String name = Text.readString(inStream); 
+       		long amount = WritableUtils.readVLong(inStream);        		
+       		peer.incrementCounter(name, group, amount);
+          	
+          } else if (cmd == MessageType.REGISTER_COUNTER.code) { //INCOMING
+      		/* TODO */
+        	/* Is not used in HAMA -> Hadoop Pipes - maybe for performance, 
+        	 * skip transferring group and name each INCREMENT
+        	 */
+              	
+          } else if (cmd == MessageType.DONE.code) { //INCOMING
+     		LOG.debug("Pipe child done");
+       		LOG.info("Pipe child done");
+       		return;
+   
+          } else if (cmd == MessageType.SEND_MSG.code) { //INCOMING
+          	String peerName = Text.readString(inStream);
+          	byte[] arr = new byte[WritableUtils.readVInt(inStream)];
+          	inStream.readFully(arr, 0, arr.length);
+          	M msg = (M) new BytesWritable(arr);
+          	peer.send(peerName, msg); 
+          	
+          } else if (cmd == MessageType.GET_MSG_COUNT.code) { //OUTGOING
+        	WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
+        	WritableUtils.writeVInt(stream, peer.getNumCurrentMessages()); 
+          	  
+          } else if (cmd == MessageType.GET_MSG.code) { //OUTGOING
+        	WritableUtils.writeVInt(stream, MessageType.GET_MSG.code);
+        	M msg = peer.getCurrentMessage();
+          	if (msg!=null)
+       			writeObject(msg);
+        	 
+          } else if (cmd == MessageType.SYNC.code) { //INCOMING
+        	peer.sync(); // this call blocks
+          	 
+          } else if (cmd == MessageType.GET_ALL_PEERNAME.code) { //OUTGOING
+          	WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
+          	for (String s : peer.getAllPeerNames())
+       			stream.writeUTF(s);
+        	
+          } else if (cmd == MessageType.GET_PEERNAME.code) { //OUTGOING
+          	int id = WritableUtils.readVInt(inStream);
+          	if (id!=-1)
+          		stream.writeUTF(peer.getPeerName(id));
+          	else
+          		stream.writeUTF(peer.getPeerName());
+        	 
+          } else if (cmd == MessageType.REOPEN_INPUT.code) { //INCOMING
+        	peer.reopenInput();
+          
           } else {
-            throw new IOException("Bad command code: " + cmd);
-          }
+          	throw new IOException("Bad command code: " + cmd);
+          } 
+          
         } catch (InterruptedException e) {
           return;
         } catch (Throwable e) {
@@ -299,7 +308,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
   }
 
   public void setBSPJob(Configuration conf) throws IOException {
-    WritableUtils.writeVInt(stream, MessageType.SET_JOB_CONF.code);
+    WritableUtils.writeVInt(stream, MessageType.SET_BSPJOB_CONF.code);
     List<String> list = new ArrayList<String>();
     for (Map.Entry<String, String> itm : conf) {
       list.add(itm.getKey());
