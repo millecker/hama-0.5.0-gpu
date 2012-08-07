@@ -22,7 +22,6 @@
 %module (directors="1") HamaPipes
 %include "std_string.i"
 %feature("director") BSP;
-%feature("director") Reducer;
 %feature("director") RecordReader;
 %feature("director") RecordWriter;
 %feature("director") Factory;
@@ -35,7 +34,6 @@
 
 using std::string;
 using std::vector;
-
 
 namespace HamaPipes {
 
@@ -157,7 +155,7 @@ public:
   /**
    * @return The number of messages in the peer's received messages queue.
    */
-  virtual int getNumCurrentMessages();
+  virtual int getNumCurrentMessages() = 0;
     
   /**
    * Barrier Synchronization.
@@ -291,18 +289,7 @@ public:
  */
 class Factory {
 public:
-  //virtual Mapper* createMapper(MapContext& context) const = 0;
-  //virtual Reducer* createReducer(ReduceContext& context) const = 0;
-    
-    virtual BSP* createBSP(BSPContext& context) const = 0;
-
-  /**
-   * Create a combiner, if this application has one.
-   * @return the new combiner or NULL, if one is not needed
-   */
-  //virtual Reducer* createReducer(BSPContext& context) const {
-  //  return NULL; 
-  //}
+  virtual BSP* createBSP(BSPContext& context) const = 0;
 
   /**
    * Create an application record reader.

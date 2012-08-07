@@ -115,8 +115,7 @@ namespace HamaPipes {
   /********************************************/
   class UpwardProtocol {
   public:
-      
-    virtual void sendMessage(const string& peerName, const string& msg);
+    virtual void sendMessage(const string& peerName, const string& msg) = 0;
     virtual void getMessage() = 0;
     virtual void getMessageCount() = 0;
     virtual void sync() = 0;
@@ -144,7 +143,7 @@ namespace HamaPipes {
   public:
     virtual void nextEvent() = 0;
     virtual UpwardProtocol* getUplink() = 0;
-    virtual ~Protocol() {}
+    virtual ~Protocol(){}
   };
     
   /********************************************/
@@ -156,7 +155,6 @@ namespace HamaPipes {
       SEND_MSG, SYNC, 
       GET_ALL_PEERNAME, GET_PEERNAME,
       REOPEN_INPUT,
-                     
       CLOSE=47, ABORT,
       DONE, REGISTER_COUNTER, INCREMENT_COUNTER};
     
@@ -188,23 +186,29 @@ namespace HamaPipes {
       serializeString(msg, *stream);
       stream->flush();
     }
-    virtual void getMessage(){
+      
+    virtual void getMessage() {
       serializeInt(GET_MSG, *stream);
     } 
-    virtual void getMessageCount(){
+      
+    virtual void getMessageCount() {
       serializeInt(GET_MSG_COUNT, *stream);
     } 
+      
     virtual void sync(){
       serializeInt(SYNC, *stream);
     } 
+      
     //virtual void getSuperstepCount() = 0;
     
-    virtual void getPeerName(int index){
+    virtual void getPeerName(int index) {
       serializeInt(GET_PEERNAME, *stream);
       serializeInt(index, *stream);
     } 
+      
     //virtual void getPeerIndex() = 0;
-    virtual void getAllPeerNames(){
+    
+    virtual void getAllPeerNames() {
       serializeInt(GET_ALL_PEERNAME, *stream);
     } 
 
@@ -225,6 +229,7 @@ namespace HamaPipes {
     virtual void reopenInput() {
         serializeInt(REOPEN_INPUT, *stream);
     }
+    
     virtual void done() {
       serializeInt(DONE, *stream);
     }
@@ -237,13 +242,15 @@ namespace HamaPipes {
       serializeString(group, *stream);
       serializeString(name, *stream);
     }
+    
     virtual void incrementCounter(const TaskContext::Counter* counter, 
                                   uint64_t amount) {
       serializeInt(INCREMENT_COUNTER, *stream);
       serializeInt(counter->getId(), *stream);
       serializeLong(amount, *stream);
     }
-     */
+    */
+    
     virtual void incrementCounter(const string& group, const string& name, uint64_t amount) {
         serializeInt(INCREMENT_COUNTER, *stream);
         serializeString(group, *stream);
@@ -267,88 +274,7 @@ namespace HamaPipes {
       
     string key;
     string value;
-    /*
-    string password;
-    bool authDone;
-      
-    void getPassword(string &password) {
-      const char *passwordFile = getenv("hama.pipes.shared.secret.location");
-      if (passwordFile == NULL) {
-        return;
-      }
-      std::ifstream fstr(passwordFile, std::fstream::binary);
-      if (fstr.fail()) {
-        std::cerr << "Could not open the password file" << std::endl;
-        return;
-      } 
-      unsigned char * passBuff = new unsigned char [512];
-      fstr.read((char *)passBuff, 512);
-      int passwordLength = fstr.gcount();
-      fstr.close();
-      passBuff[passwordLength] = 0;
-      password.replace(0, passwordLength, (const char *) passBuff, passwordLength);
-      delete [] passBuff;
-      return; 
-    }
-    
-    
-    void verifyDigestAndRespond(string& digest, string& challenge) {
-      if (password.empty()) {
-        //password can be empty if process is running in debug mode from
-        //command file.
-        authDone = true;
-        return;
-      }
-
-      if (!verifyDigest(password, digest, challenge)) {
-        std::cerr << "Server failed to authenticate. Exiting" << std::endl;
-        exit(-1);
-      }
-      authDone = true;
-      string responseDigest = createDigest(password, digest);
-      uplink->authenticate(responseDigest);
-    }
-
-    bool verifyDigest(string &password, string& digest, string& challenge) {
-      string expectedDigest = createDigest(password, challenge);
-      if (digest == expectedDigest) {
-        return true;
-      } else {
-        return false;
-      }
-    }
-
-
-    string createDigest(string &password, string& msg) {
-      HMAC_CTX ctx;
-      unsigned char digest[EVP_MAX_MD_SIZE];
-      HMAC_Init(&ctx, (const unsigned char *)password.c_str(), 
-          password.length(), EVP_sha1());
-      HMAC_Update(&ctx, (const unsigned char *)msg.c_str(), msg.length());
-      unsigned int digestLen;
-      HMAC_Final(&ctx, digest, &digestLen);
-      HMAC_cleanup(&ctx);
-
-      //now apply base64 encoding
-      BIO *bmem, *b64;
-      BUF_MEM *bptr;
-
-      b64 = BIO_new(BIO_f_base64());
-      bmem = BIO_new(BIO_s_mem());
-      b64 = BIO_push(b64, bmem);
-      BIO_write(b64, digest, digestLen);
-      BIO_flush(b64);
-      BIO_get_mem_ptr(b64, &bptr);
-
-      char digestBuffer[bptr->length];
-      memcpy(digestBuffer, bptr->data, bptr->length-1);
-      digestBuffer[bptr->length-1] = 0;
-      BIO_free_all(b64);
-
-      return string(digestBuffer);
-    }
-    */
-
+   
   public:
     BinaryProtocol(FILE* down, DownwardProtocol* _handler, FILE* up) {
       downStream = new FileInStream();
@@ -480,30 +406,6 @@ namespace HamaPipes {
         handler->setNewResult(peernames);
         break;
       }
-      
-    
-
-    /*
-      case RUN_REDUCE: {
-        int32_t reduce;
-        int32_t piped;
-        reduce = deserializeInt(*downStream);
-        piped = deserializeInt(*downStream);
-        handler->runReduce(reduce, piped);
-        break;
-      }
-      case REDUCE_KEY: {
-        deserializeString(key, *downStream);
-        handler->reduceKey(key);
-        break;
-      }
-      case REDUCE_VALUE: {
-        deserializeString(value, *downStream);
-        handler->reduceValue(value);
-        break;
-      }
-      */
-              
               
       case CLOSE:
         handler->close();
@@ -709,7 +611,7 @@ namespace HamaPipes {
     /**
      * Get the BSPJob for the current task.
      */
-    virtual BSPJob* getBSPJob() {
+    virtual const BSPJob* getBSPJob() {
       return job;
     }
 
@@ -754,9 +656,9 @@ namespace HamaPipes {
     /********************************************/
       
     /**
-     * Access the InputSplit of the mapper.
+     * Access the InputSplit of the bsp.
      */
-    virtual const std::string& getInputSplit() {
+    virtual const string& getInputSplit() {
       return *inputSplit;
     }
       
@@ -923,7 +825,7 @@ namespace HamaPipes {
         uplink = _uplink;
     }
    
-    virtual bool isDone() {
+    bool isDone() {
         pthread_mutex_lock(&mutexDone);
         bool doneCopy = done;
         pthread_mutex_unlock(&mutexDone);
@@ -933,7 +835,7 @@ namespace HamaPipes {
     /**
      * Advance to the next value.
      */
-    virtual bool nextValue() {
+    bool nextValue() {
         if (isNewKey || done) {
             return false;
         }
@@ -1105,9 +1007,9 @@ namespace HamaPipes {
         stream = fopen(filename, "r");
         outStream = fopen(outFilename.c_str(), "w");
         connection = new BinaryProtocol(stream, context, outStream);
-      } else {
+      } //else {
         //connection = new TextProtocol(stdin, context, stdout);
-      }
+      //}
         
       context->setProtocol(connection, connection->getUplink());
         
