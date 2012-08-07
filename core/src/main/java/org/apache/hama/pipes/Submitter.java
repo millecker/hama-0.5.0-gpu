@@ -342,13 +342,9 @@ public class Submitter implements Tool {
 
     if (cpubin != null) {
       try {
-        // fileCache[0] = new URI(exec);
         fileCache[0] = new URI(cpubin);
       } catch (URISyntaxException e) {
-        // IOException ie = new IOException("Problem parsing execable URI " +
-        // exec);
-        IOException ie = new IOException("Problem parsing execable URI "
-            + cpubin);
+        IOException ie = new IOException("Problem parsing execable URI "+ cpubin);
         ie.initCause(e);
         throw ie;
       }
@@ -357,8 +353,7 @@ public class Submitter implements Tool {
       try {
         fileCache[1] = new URI(gpubin);
       } catch (URISyntaxException e) {
-        IOException ie = new IOException("Problem parsing execable URI "
-            + gpubin);
+        IOException ie = new IOException("Problem parsing execable URI " + gpubin);
         ie.initCause(e);
         throw ie;
       }

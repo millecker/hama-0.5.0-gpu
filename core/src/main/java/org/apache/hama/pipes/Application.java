@@ -94,14 +94,14 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0].toString();
+      executable = DistributedCache.getCacheFiles(peer.getConfiguration())[0].toString();
+      LOG.info("DEBUG: executable: " +executable);
     } catch (Exception e) {
       // if executable (GPU) missing?
-      LOG.info("ERROR: "
-          + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
-          + " executable is missing!");
-      throw new IOException(((Integer.parseInt(e.getMessage()) == 1) ? "GPU"
-          : "CPU") + " executable is missing!");
+      //LOG.info("ERROR: "
+    	//    + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
+    	//  + " executable is missing!");
+      throw new IOException("Executable is missing! ");
     }
 
     if (!new File(executable).canExecute()) {
@@ -135,8 +135,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     K2 outputKey = (K2) ReflectionUtils.newInstance(outputKeyClass, peer.getConfiguration());
     V2 outputValue = (V2) ReflectionUtils.newInstance(outputValueClass, peer.getConfiguration());
     
-    downlink = new BinaryProtocol<K1, V1, K2, V2, M>(peer,clientSocket,outputKey, outputValue);
-
+    downlink = new BinaryProtocol<K1, V1, K2, V2, M>(peer, clientSocket, outputKey, outputValue);
     downlink.start();
   }
 

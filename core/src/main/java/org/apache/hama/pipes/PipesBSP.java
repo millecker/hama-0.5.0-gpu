@@ -57,8 +57,10 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
    * @throws IOException
    */
   public void cleanup(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException {
-	  application.getDownlink().runCleanup(false, false);
-	  application.cleanup();
+	  if (application!=null) {
+	  	application.getDownlink().runCleanup(false, false);
+	  	application.cleanup();
+	  }
   }
 
 }

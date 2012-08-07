@@ -60,6 +60,7 @@ if [ $# = 0 ]; then
   echo "  zookeeper            run a Zookeeper server"
   echo "  job                  manipulate BSP jobs"
   echo "  jar <jar>            run a jar file"
+  echo "  pipes                run a Pipes job"
   echo " or"
   echo "  CLASSNAME            run the class named CLASSNAME"
   echo "Most commands print help when invoked w/o parameters."
@@ -153,6 +154,9 @@ unset IFS
 if [ "$COMMAND" = "bspmaster" ] ; then
   CLASS='org.apache.hama.BSPMasterRunner'
   BSP_OPTS="$BSP_OPTS $BSP_BSPMASTER_OPTS"
+elif [ "$COMMAND" = "pipes" ] ; then
+  CLASS='org.apache.hama.pipes.Submitter'
+  BSP_OPTS="$HAMA_OPTS $HAMA_CLIENT_OPTS"
 elif [ "$COMMAND" = "groom" ] ; then
   CLASS='org.apache.hama.GroomServerRunner'
   BSP_OPTS="$BSP_OPTS $BSP_GROOMSERVER_OPTS"
