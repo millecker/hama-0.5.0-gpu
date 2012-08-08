@@ -27,8 +27,8 @@ import java.util.List;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
-import org.apache.hama.HamaConfiguration;
 
 /**
  * A simple logger to handle the task-specific user logs.
@@ -48,7 +48,7 @@ public class TaskLog {
   public static File getTaskLogFile(TaskAttemptID taskid, LogName filter) {
     // TODO clean up the log path and type.
     return new File(LOG_DIR, taskid.getJobID() + "/" + taskid.toString()
-        + ".log");
+        + ((filter==LogName.STDERR)?".err":".log"));
   }
 
   /**
@@ -203,7 +203,7 @@ public class TaskLog {
    * @param conf the job to look in
    * @return the number of bytes to cap the log files at
    */
-  public static long getTaskLogLength(HamaConfiguration conf) {
+  public static long getTaskLogLength(Configuration conf) {
     return conf.getLong("bsp.userlog.limit.kb", 100) * 1024;
   }
 
