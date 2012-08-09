@@ -82,13 +82,13 @@ public:
    * Get the current key. 
    * @return the current key
    */
-  virtual const string& getInputKey() = 0;
+  //virtual const string& getInputKey() = 0;
 
   /**
    * Get the current value. 
    * @return the current value
    */
-  virtual const string& getInputValue() = 0;
+  //virtual const string& getInputValue() = 0;
 
   /**
    * Generate an output record
@@ -126,7 +126,7 @@ public:
   /**
    * Access the InputSplit of the mapper.
    */
-  virtual const string& getInputSplit() = 0;
+  //virtual const string& getInputSplit() = 0;
 
   /**
    * Get the name of the key class of the input to this task.
@@ -209,7 +209,7 @@ public:
   /**
    * Deserializes the next input key value into the given objects;
    */
-  //virtual bool readNext(const string& key, const string& value) = 0;
+  virtual bool readNext(string& key, string& value) = 0;
     
     /**
      * Reads the next key value pair and returns it as a pair. It may reuse a
