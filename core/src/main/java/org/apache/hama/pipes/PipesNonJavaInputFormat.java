@@ -39,64 +39,64 @@ import org.apache.hama.bsp.TextInputFormat;
  * <i>mapred.pipes.user.inputformat</i>.
  */
 class PipesNonJavaInputFormat implements
-    InputFormat<FloatWritable, NullWritable> {
+		InputFormat<FloatWritable, NullWritable> {
 
-  @Override
-  public RecordReader<FloatWritable, NullWritable> getRecordReader(
-      InputSplit genericSplit, BSPJob job) throws IOException {
-    return new PipesDummyRecordReader(job.getConf(), genericSplit);
-  }
+	@Override
+	public RecordReader<FloatWritable, NullWritable> getRecordReader(
+			InputSplit genericSplit, BSPJob job) throws IOException {
+		return new PipesDummyRecordReader(job.getConf(), genericSplit);
+	}
 
-  @Override
-  public InputSplit[] getSplits(BSPJob job, int numSplits) throws IOException {
-    // Delegate the generation of input splits to the 'original' InputFormat
-    return ReflectionUtils.newInstance(
-        job.getConf().getClass("hama.pipes.user.inputformat",
-            TextInputFormat.class, InputFormat.class), job.getConf())
-        .getSplits(job, numSplits);
-  }
+	@Override
+	public InputSplit[] getSplits(BSPJob job, int numSplits) throws IOException {
+		// Delegate the generation of input splits to the 'original' InputFormat
+		return ReflectionUtils.newInstance(
+				job.getConf().getClass("hama.pipes.user.inputformat",
+						TextInputFormat.class, InputFormat.class),
+				job.getConf()).getSplits(job, numSplits);
+	}
 
-  /**
-   * A dummy {@link org.apache.hadoop.mapred.RecordReader} to help track the
-   * progress of Hama Pipes' applications when they are using a non-Java
-   * <code>RecordReader</code>.
-   * 
-   * The <code>PipesDummyRecordReader</code> is informed of the 'progress' of
-   * the task by the {@link OutputHandler#progress(float)} which calls the
-   * {@link #next(FloatWritable, NullWritable)} with the progress as the
-   * <code>key</code>.
-   */
-  static class PipesDummyRecordReader implements
-      RecordReader<FloatWritable, NullWritable> {
-    float progress = 0.0f;
+	/**
+	 * A dummy {@link org.apache.hadoop.mapred.RecordReader} to help track the
+	 * progress of Hama Pipes' applications when they are using a non-Java
+	 * <code>RecordReader</code>.
+	 * 
+	 * The <code>PipesDummyRecordReader</code> is informed of the 'progress' of
+	 * the task by the {@link OutputHandler#progress(float)} which calls the
+	 * {@link #next(FloatWritable, NullWritable)} with the progress as the
+	 * <code>key</code>.
+	 */
+	static class PipesDummyRecordReader implements
+			RecordReader<FloatWritable, NullWritable> {
+		float progress = 0.0f;
 
-    public PipesDummyRecordReader(Configuration job, InputSplit split)
-        throws IOException {
-    }
+		public PipesDummyRecordReader(Configuration job, InputSplit split)
+				throws IOException {
+		}
 
-    public FloatWritable createKey() {
-      return null;
-    }
+		public FloatWritable createKey() {
+			return null;
+		}
 
-    public NullWritable createValue() {
-      return null;
-    }
+		public NullWritable createValue() {
+			return null;
+		}
 
-    public synchronized void close() throws IOException {
-    }
+		public synchronized void close() throws IOException {
+		}
 
-    public synchronized long getPos() throws IOException {
-      return 0;
-    }
+		public synchronized long getPos() throws IOException {
+			return 0;
+		}
 
-    public float getProgress() {
-      return progress;
-    }
+		public float getProgress() {
+			return progress;
+		}
 
-    public synchronized boolean next(FloatWritable key, NullWritable value)
-        throws IOException {
-      progress = key.get();
-      return true;
-    }
-  }
+		public synchronized boolean next(FloatWritable key, NullWritable value)
+				throws IOException {
+			progress = key.get();
+			return true;
+		}
+	}
 }

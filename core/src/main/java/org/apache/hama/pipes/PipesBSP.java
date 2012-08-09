@@ -19,48 +19,53 @@ package org.apache.hama.pipes;
 
 import java.io.IOException;
 
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
 import org.apache.hama.bsp.BSP;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.sync.SyncException;
 
-public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
-    extends BSP<K1, V1, K2, V2, M> {
+public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
+		extends BSP<K1, V1, K2, V2, BytesWritable> {
 
-  private Application<K1, V1, K2, V2, M> application; 
-	
-  public void setup(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException,
-      SyncException, InterruptedException {
-	    
-    this.application = new Application<K1, V1, K2, V2, M>(peer,
-    		(Class<? extends K2>)peer.getConfiguration().getClass("bsp.output.key.class", Object.class),
-    		(Class<? extends V2>)peer.getConfiguration().getClass("bsp.output.value.class", Object.class));
-    
-    
-    application.getDownlink().runSetup(false, false);
-    
-  }
+	private Application<K1, V1, K2, V2, BytesWritable> application;
 
-  public void bsp(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException,
-      SyncException, InterruptedException {
+	@SuppressWarnings("unchecked")
+	public void setup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+			throws IOException, SyncException, InterruptedException {
 
-	application.getDownlink().runBsp(false, false);
-	    
-  }
+		this.application = new Application<K1, V1, K2, V2, BytesWritable>(peer,
+				(Class<? extends K2>) peer.getConfiguration().getClass(
+						"bsp.output.key.class", Object.class),
+				(Class<? extends V2>) peer.getConfiguration().getClass(
+						"bsp.output.value.class", Object.class));
 
-  /**
-   * This method is called after the BSP method. It can be used for cleanup
-   * purposes. Cleanup is guranteed to be called after the BSP runs, even in
-   * case of exceptions.
-   * 
-   * @param peer Your BSPPeer instance.
-   * @throws IOException
-   */
-  public void cleanup(BSPPeer<K1, V1, K2, V2, M> peer) throws IOException {
-	  if (application!=null) {
-	  	application.getDownlink().runCleanup(false, false);
-	  	application.cleanup();
-	  }
-  }
+		application.getDownlink().runSetup(false, false);
+
+	}
+
+	public void bsp(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+			throws IOException, SyncException, InterruptedException {
+
+		application.getDownlink().runBsp(false, false);
+
+	}
+
+	/**
+	 * This method is called after the BSP method. It can be used for cleanup
+	 * purposes. Cleanup is guranteed to be called after the BSP runs, even in
+	 * case of exceptions.
+	 * 
+	 * @param peer
+	 *            Your BSPPeer instance.
+	 * @throws IOException
+	 */
+	public void cleanup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+			throws IOException {
+		if (application != null) {
+			application.getDownlink().runCleanup(false, false);
+			application.cleanup();
+		}
+	}
 
 }
