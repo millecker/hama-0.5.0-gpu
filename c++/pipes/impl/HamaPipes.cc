@@ -38,6 +38,8 @@
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
 
+#define stringify( name ) # name
+
 using std::map;
 using std::string;
 using std::vector;
@@ -104,6 +106,7 @@ namespace HamaPipes {
     virtual void runSetup(bool pipedInput, bool pipedOutput) = 0;
       
     virtual void setNewResult(int value) = 0;
+    virtual void setNewResult(long value) = 0;  
     virtual void setNewResult(const string&  value) = 0;
     virtual void setNewResult(vector<string> value) = 0;
       
@@ -119,21 +122,9 @@ namespace HamaPipes {
   /********************************************/
   class UpwardProtocol {
   public:
-    virtual void sendMessage(const string& peerName, const string& msg) = 0;
-    virtual void getCurrentMessage() = 0;
-    virtual void getNumCurrentMessages() = 0;
-    virtual void sync() = 0;
-    //virtual void getSuperstepCount() = 0;
-    virtual void getPeerName(int index) = 0;
-    //virtual void getPeerIndex() = 0;
-    virtual void getAllPeerNames() = 0;
-    //virtual void getNumPeers() = 0;
-    //virtual void clear() = 0;
-    virtual void writeKeyValue(const string& key, const string& value) = 0; 
-    virtual void readNext() = 0;
-    virtual void reopenInput() = 0;
-    virtual void done() = 0;
-    virtual void taskDone() = 0;
+    virtual void sendCMD(int32_t cmd) = 0;
+    virtual void sendCMD(int32_t cmd, int32_t value) = 0;
+    virtual void sendCMD(int32_t cmd, const string& value1, const string& value2) = 0;
       
     //virtual void registerCounter(int id, const string& group, const string& name) = 0;
     //virtual void incrementCounter(const TaskContext::Counter* counter, uint64_t amount) = 0;
@@ -154,15 +145,34 @@ namespace HamaPipes {
   /********************************************/
   /*************** MESSAGE_TYPE ***************/  
   /********************************************/
-  enum MESSAGE_TYPE {START_MESSAGE, SET_BSPJOB_CONF, SET_INPUT_TYPES,       
+  enum MESSAGE_TYPE {
+      START_MESSAGE, SET_BSPJOB_CONF, SET_INPUT_TYPES,       
       RUN_SETUP, RUN_BSP, RUN_CLEANUP,
-      READ_KEYVALUE, WRITE_KEYVALUE, GET_MSG, GET_MSG_COUNT, 
+      READ_KEYVALUE, WRITE_KEYVALUE, 
+      GET_MSG, GET_MSG_COUNT, 
       SEND_MSG, SYNC, 
       GET_ALL_PEERNAME, GET_PEERNAME,
-      REOPEN_INPUT,
+      GET_PEER_INDEX, GET_PEER_COUNT, GET_SUPERSTEP_COUNT,
+      REOPEN_INPUT, CLEAR,
       CLOSE, ABORT,
-      DONE, TASK_DONE, REGISTER_COUNTER, INCREMENT_COUNTER};
+      DONE, TASK_DONE, 
+      REGISTER_COUNTER, INCREMENT_COUNTER
+  };
     
+  /* Only needed for debugging output */
+  const char* messageTypeNames[] = {
+      stringify( START_MESSAGE ), stringify( SET_BSPJOB_CONF ), stringify( SET_INPUT_TYPES ),       
+      stringify( RUN_SETUP ), stringify( RUN_BSP ), stringify( RUN_CLEANUP ),
+      stringify( READ_KEYVALUE ), stringify( WRITE_KEYVALUE ), 
+      stringify( GET_MSG ), stringify( GET_MSG_COUNT ), 
+      stringify( SEND_MSG ), stringify( SYNC ), 
+      stringify( GET_ALL_PEERNAME ), stringify( GET_PEERNAME ),
+      stringify( GET_PEER_INDEX ), stringify( GET_PEER_COUNT ), stringify( GET_SUPERSTEP_COUNT ),
+      stringify( REOPEN_INPUT ), stringify( CLEAR ),
+      stringify( CLOSE ), stringify( ABORT ),
+      stringify( DONE ), stringify( TASK_DONE ), 
+      stringify( REGISTER_COUNTER ), stringify( INCREMENT_COUNTER )
+    };
 
   /********************************************/
   /*********** BinaryUpwardProtocol ***********/  
@@ -177,94 +187,27 @@ namespace HamaPipes {
         
     }
 
-    /*
-    virtual void authenticate(const string &responseDigest) {
-      serializeInt(AUTHENTICATION_RESP, *stream);
-      serializeString(responseDigest, *stream);
+    virtual void sendCMD(int32_t cmd) {
+      serializeInt(cmd, *stream);
       stream->flush();
-    }
-    */
-
-    virtual void sendMessage(const string& peerName, const string& msg) {
-      serializeInt(SEND_MSG, *stream);
-      serializeString(peerName, *stream);
-      serializeString(msg, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SEND_MSG peername: %s msg: %s\n",
-              peerName.c_str(),msg.c_str());
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s\n",
+          messageTypeNames[cmd]);
     }
       
-    virtual void getCurrentMessage() {
-      serializeInt(GET_MSG, *stream);
+    virtual void sendCMD(int32_t cmd, int32_t value) {
+      serializeInt(cmd, *stream);
+      serializeInt(value, *stream);
       stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG\n");
-    } 
-      
-    virtual void getNumCurrentMessages() {
-      serializeInt(GET_MSG_COUNT, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG_COUNT\n");
-    } 
-      
-    virtual void sync(){
-      serializeInt(SYNC, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SYNC\n");
-    } 
-      
-    //virtual void getSuperstepCount() = 0;
-    
-    virtual void getPeerName(int index) {
-      serializeInt(GET_PEERNAME, *stream);
-      serializeInt(index, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_PEERNAME\n");
-    } 
-      
-    //virtual void getPeerIndex() = 0;
-    
-    virtual void getAllPeerNames() {
-      serializeInt(GET_ALL_PEERNAME, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_ALL_PEERNAME\n");
-    } 
-
-    //virtual void getNumPeers() = 0;
-    //virtual void clear() = 0;
-     
-    virtual void writeKeyValue(const string& key, const string& value) {
-      serializeInt(WRITE_KEYVALUE, *stream);
-      serializeString(key, *stream);
-      serializeString(value, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent WRITE_KEYVALUE key: %s value: %s\n",
-              key.c_str(),value.c_str());
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s and Value: %d\n",messageTypeNames[cmd],value);
     }
       
-    virtual void readNext() {
-      serializeInt(READ_KEYVALUE, *stream);
+    virtual void sendCMD(int32_t cmd, const string& value1, const string& value2) {
+      serializeInt(cmd, *stream);
+      serializeString(value1, *stream);
+      serializeString(value2, *stream);
       stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent READ_KEYVALUE\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s with Value1: %s and Value2: %s\n",messageTypeNames[cmd],value1.c_str(),value2.c_str());
     }
-      
-    virtual void reopenInput() {
-      serializeInt(REOPEN_INPUT, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent REOPEN_INPUT\n");
-    }
-    
-    virtual void done() {
-      serializeInt(DONE, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent DONE\n");
-    }
-      
-    virtual void taskDone() {
-      serializeInt(TASK_DONE, *stream);
-      stream->flush();
-      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent TASK_DONE\n");
-    }
-
 
     /*
     virtual void registerCounter(int id, const string& group, 
@@ -417,7 +360,7 @@ namespace HamaPipes {
       }
         
       case GET_MSG_COUNT: {
-        int msgCount = deserializeInt(*downStream);
+        int32_t msgCount = deserializeInt(*downStream);
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_MSG_COUNT msgCount: %d\n",msgCount); 
         handler->setNewResult(msgCount);
         break;
@@ -438,7 +381,7 @@ namespace HamaPipes {
       }
       case GET_ALL_PEERNAME: {
         vector<string> peernames;
-        int peernameCount = deserializeInt(*downStream);
+        int32_t peernameCount = deserializeInt(*downStream);
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME peernameCount: %d\n",peernameCount);
         string peername;
         for (int i=0; i<peernameCount; i++)  {
@@ -449,7 +392,25 @@ namespace HamaPipes {
         handler->setNewResult(peernames);
         break;
       }
-              
+      case GET_PEER_INDEX: {
+        int32_t peerIndex = deserializeInt(*downStream);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_PEER_INDEX peerIndex: %d\n",peerIndex); 
+        handler->setNewResult(peerIndex);
+        break;
+      }
+      case GET_PEER_COUNT: {
+        int32_t peerCount = deserializeInt(*downStream);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_PEER_COUNT peerCount: %d\n",peerCount); 
+        handler->setNewResult(peerCount);
+        break;
+      }
+      case GET_SUPERSTEP_COUNT: {
+        int64_t superstepCount = deserializeLong(*downStream);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_SUPERSTEP_COUNT superstepCount: %ld\n",(long)superstepCount); 
+        handler->setNewResult(superstepCount);
+        break;
+      }
+            
       case CLOSE:
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got CLOSE\n"); 
         handler->close();
@@ -507,8 +468,10 @@ namespace HamaPipes {
     pthread_mutex_t mutexDone;
     std::vector<int> registeredCounterIds;
       
-    int resultInt;
+    int32_t resultInt;
     bool isNewResultInt;  
+    int64_t resultLong;
+    bool isNewResultLong; 
     string resultString;
     bool isNewResultString;   
     vector<string> resultVector;
@@ -618,7 +581,7 @@ namespace HamaPipes {
         hasTask = true;
         bsp->setup(*this);
         hasTask = false;
-        uplink->taskDone();
+        uplink->sendCMD(TASK_DONE);
       }
     }
       
@@ -632,7 +595,7 @@ namespace HamaPipes {
         hasTask = true;
         bsp->bsp(*this);
         hasTask = false;
-        uplink->taskDone();
+        uplink->sendCMD(TASK_DONE);
       }
     }
       
@@ -643,15 +606,20 @@ namespace HamaPipes {
         hasTask = true;
         bsp->cleanup(*this);
         hasTask = false;
-        uplink->taskDone();
+        uplink->sendCMD(TASK_DONE);
       }
     }
      
-    virtual void setNewResult(int _value) {
+    virtual void setNewResult(int32_t _value) {
       resultInt = _value;
       isNewResultInt = true;  
     }
 
+    virtual void setNewResult(int64_t _value) {
+      resultLong = _value;
+      isNewResultLong = true;  
+    }
+      
     virtual void setNewResult(const string& _value) {
       resultString = _value;
       isNewResultString = true;   
@@ -753,14 +721,14 @@ namespace HamaPipes {
      * order.
      */
     virtual void sendMessage(const string& peerName, const string& msg) {
-        uplink->sendMessage(peerName,msg);
+        uplink->sendCMD(SEND_MSG,peerName,msg);
     }
       
     /**
      * @return A message from the peer's received messages queue (a FIFO).
      */
     virtual const string& getCurrentMessage() {
-      uplink->getCurrentMessage();
+      uplink->sendCMD(GET_MSG);
       
       while (!isNewResultString)
           protocol->nextEvent();
@@ -774,7 +742,7 @@ namespace HamaPipes {
      * @return The number of messages in the peer's received messages queue.
      */
     virtual int getNumCurrentMessages() {
-      uplink->getNumCurrentMessages();
+      uplink->sendCMD(GET_MSG_COUNT);
         
       while (!isNewResultInt)
         protocol->nextEvent();
@@ -790,21 +758,14 @@ namespace HamaPipes {
      * remote peers.
      */
     virtual void sync() {
-      uplink->sync();
-    }
-      
-    /**
-     * @return the count of current super-step
-     */
-    virtual long getSuperstepCount() {
-      return 0;
+      uplink->sendCMD(SYNC);
     }
     
     /**
      * @return the name of this peer in the format "hostname:port".
      */ 
     virtual const string& getPeerName() {
-      uplink->getPeerName(-1);
+      uplink->sendCMD(GET_PEERNAME,-1);
     
       while (!isNewResultString)
         protocol->nextEvent();
@@ -818,25 +779,14 @@ namespace HamaPipes {
      * @return the name of n-th peer from sorted array by name.
      */
     virtual const string& getPeerName(int index) {
-      uplink->getPeerName(index);
+      uplink->sendCMD(GET_PEERNAME,index);
         
       while (!isNewResultString)
         protocol->nextEvent();
   
       if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName - NewResultString: %s\n",resultString.c_str());
       isNewResultString = false;
-        
-      //string &tmp = *resultString;
-      //fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName2 - NewResultString: %s\n",tmp.c_str());
-        
       return resultString;
-    }
-      
-    /**
-     * @return the index of this peer from sorted array by name.
-     */
-    virtual int getPeerIndex() {
-      return 0;
     }
     
     /**
@@ -844,7 +794,7 @@ namespace HamaPipes {
      *         (including this peer).
      */
     virtual vector<string> getAllPeerNames() {
-      uplink->getAllPeerNames();
+      uplink->sendCMD(GET_ALL_PEERNAME);
         
       while (!isNewResultVector)
         protocol->nextEvent();
@@ -854,17 +804,49 @@ namespace HamaPipes {
     }
     
     /**
+     * @return the index of this peer from sorted array by name.
+     */
+    virtual int getPeerIndex() {
+      uplink->sendCMD(GET_PEER_INDEX);
+        
+      while (!isNewResultInt)
+        protocol->nextEvent();
+        
+      isNewResultInt = false;
+      return resultInt;
+    }
+      
+    /**
      * @return the number of peers
      */
     virtual int getNumPeers() {
-      return 0;         
+      uplink->sendCMD(GET_PEER_COUNT);
+        
+      while (!isNewResultInt)
+        protocol->nextEvent();
+        
+      isNewResultInt = false;
+      return resultInt;       
     }
+      
+    /**
+     * @return the count of current super-step
+     */
+    virtual long getSuperstepCount() {
+      uplink->sendCMD(GET_SUPERSTEP_COUNT);
+        
+      while (!isNewResultLong)
+        protocol->nextEvent();
+        
+      isNewResultLong = false;
+      return resultLong;     
+    }  
     
     /**
      * Clears all queues entries.
      */
     virtual void clear() {
-          
+      uplink->sendCMD(CLEAR);
     }
 
     /**
@@ -874,7 +856,7 @@ namespace HamaPipes {
         if (writer != NULL) {
             writer->emit(key, value);
         } else {
-            uplink->writeKeyValue(key, value);
+            uplink->sendCMD(WRITE_KEYVALUE,key, value);
         }
     }
     
@@ -882,7 +864,7 @@ namespace HamaPipes {
      * Deserializes the next input key value into the given objects;
      */
     virtual bool readNext(string& _key, string& _value) {
-      uplink->readNext();
+      uplink->sendCMD(READ_KEYVALUE);
         
       while (!isNewKeyValuePair)
         protocol->nextEvent();
@@ -903,7 +885,7 @@ namespace HamaPipes {
      * the beginning again.
      */
     virtual void reopenInput() {
-      uplink->reopenInput();
+      uplink->sendCMD(REOPEN_INPUT);
     }
       
       
@@ -1124,7 +1106,7 @@ namespace HamaPipes {
       //}
         
       context->closeAll();
-      connection->getUplink()->done();
+      connection->getUplink()->sendCMD(DONE);
       
       //pthread_join(pingThread,NULL);
       

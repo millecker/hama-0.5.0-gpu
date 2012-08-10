@@ -77,12 +77,15 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
   private static enum MessageType {
 	  	START(0), SET_BSPJOB_CONF(1), SET_INPUT_TYPES(2), 
 	  	RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(5),
-    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), GET_MSG_COUNT(9), 
+    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), 
+    	GET_MSG(8), GET_MSG_COUNT(9), 
     	SEND_MSG(10), SYNC(11), 
     	GET_ALL_PEERNAME(12), GET_PEERNAME(13),
-    	REOPEN_INPUT(14), 
-    	CLOSE(15), ABORT(16), 
-    	DONE(17), TASK_DONE(18), REGISTER_COUNTER(19), INCREMENT_COUNTER(20);
+    	GET_PEER_INDEX(14), GET_PEER_COUNT(15), GET_SUPERSTEP_COUNT(16),
+    	REOPEN_INPUT(17), CLEAR(18),
+    	CLOSE(19), ABORT(20), 
+    	DONE(21), TASK_DONE(22), 
+    	REGISTER_COUNTER(23), INCREMENT_COUNTER(24);
 	  	
     final int code;
 
@@ -209,8 +212,8 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
        			writeObject(msg);
         	 
           	flush();
-          	LOG.info("Responded MessageType.GET_MSG - Message(BytesWritable): "+msg);
-          	
+          	LOG.info("Responded MessageType.GET_MSG - Message(BytesWritable) ");//+msg);
+
           } else if (cmd == MessageType.SYNC.code) { //INCOMING
         	LOG.info("Got MessageType.SYNC");
         	peer.sync(); // this call blocks
@@ -220,10 +223,11 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
         	WritableUtils.writeVInt(stream, MessageType.GET_ALL_PEERNAME.code);
           	WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
           	for (String s : peer.getAllPeerNames())
-       			stream.writeUTF(s);
+          		Text.writeString(stream,s);
         	
           	flush();
-          	LOG.info("Responded MessageType.GET_ALL_PEERNAME - peerNames: "+peer.getAllPeerNames());
+          	LOG.info("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
+          			+peer.getAllPeerNames().length);
           	
           } else if (cmd == MessageType.GET_PEERNAME.code) { //OUTGOING
           	int id = WritableUtils.readVInt(inStream);
@@ -232,21 +236,47 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           	WritableUtils.writeVInt(stream, MessageType.GET_PEERNAME.code);
           	if (id==-1) { // -1 indicates get own PeerName
           		Text.writeString(stream, peer.getPeerName());
+          		LOG.info("Responded MessageType.GET_PEERNAME - Get Own PeerName: "+
+      					peer.getPeerName());
+          		
           	} else if ((id<-1) || (id>=peer.getNumPeers())) {
           		//if no PeerName for this index is found write emptyString
           		Text.writeString(stream, "");
+          		LOG.info("Responded MessageType.GET_PEERNAME - Empty PeerName!");
+
           	} else {
           		Text.writeString(stream, peer.getPeerName(id));
+          		LOG.info("Responded MessageType.GET_PEERNAME - PeerName: "+
+              					peer.getPeerName(id));
           	}
           	flush();
-          	LOG.info("Responded MessageType.GET_PEERNAME - peerName: "+
-          			((id>=0 && id!=-1 && id<peer.getNumPeers())?
-          					peer.getPeerName(id):peer.getPeerName()));
+          	          	
+          } else if (cmd == MessageType.GET_PEER_INDEX.code) { //OUTGOING
+          	WritableUtils.writeVInt(stream, MessageType.GET_PEER_INDEX.code);
+          	WritableUtils.writeVInt(stream, peer.getPeerIndex()); 
+            flush();
+            LOG.info("Responded MessageType.GET_PEER_INDEX - PeerIndex: "+peer.getPeerIndex());	
           	
+          } else if (cmd == MessageType.GET_PEER_COUNT.code) { //OUTGOING
+            WritableUtils.writeVInt(stream, MessageType.GET_PEER_COUNT.code);
+            WritableUtils.writeVInt(stream, peer.getNumPeers()); 
+            flush();
+            LOG.info("Responded MessageType.GET_PEER_COUNT - NumPeers: "+peer.getNumPeers());	
+            	
+          } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { //OUTGOING
+              WritableUtils.writeVInt(stream, MessageType.GET_SUPERSTEP_COUNT.code);
+              WritableUtils.writeVLong(stream, peer.getSuperstepCount()); 
+              flush();
+              LOG.info("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "+peer.getSuperstepCount());	
+              	
           } else if (cmd == MessageType.REOPEN_INPUT.code) { //INCOMING
         	LOG.info("Got MessageType.REOPEN_INPUT");
         	peer.reopenInput();
           
+          } else if (cmd == MessageType.CLEAR.code) { //INCOMING
+          	LOG.info("Got MessageType.CLEAR");
+          	peer.clear();
+            
           } else {
           	throw new IOException("Bad command code: " + cmd);
           } 
