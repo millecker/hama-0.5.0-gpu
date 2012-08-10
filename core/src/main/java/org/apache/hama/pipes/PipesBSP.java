@@ -25,6 +25,11 @@ import org.apache.hama.bsp.BSP;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.sync.SyncException;
 
+/**
+ * 
+ * @author Martin Illecker
+ * 
+ */
 public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
     extends BSP<K1, V1, K2, V2, BytesWritable> {
 

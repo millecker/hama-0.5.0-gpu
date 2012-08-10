@@ -47,7 +47,12 @@ import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.util.KeyValuePair;
 
 /**
- * This protocol is a binary implementation of the Pipes protocol.
+ * This protocol is a binary implementation of the Hama Pipes protocol.
+ * 
+ * Adapted from Hadoop Pipes
+ * 
+ * @author Martin Illecker
+ * 
  */
 class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
     implements DownwardProtocol<K1, V1> {
@@ -187,14 +192,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           } else if (cmd == MessageType.SEND_MSG.code) { //INCOMING
           	String peerName = Text.readString(inStream);
           	readObject(message);
-            //byte[] bytes = new byte[WritableUtils.readVInt(inStream)];
-          	//inStream.readFully(bytes, 0, bytes.length);
-          	
-          	//String msgStr = Text.readString(inStream);
-          	//M msg = (M) new BytesWritable(msgStr.getBytes());
-          	//M msg = (M) new BytesWritable(bytes);
-          	LOG.info("Got MessageType.SEND_MSG peerName: "+peerName
-          			+ " msg(BytesWritable): '"+message);//+ "' msgStr: '"+msgStr+"'");
+            LOG.info("Got MessageType.SEND_MSG to peerName: "+peerName);
           	peer.send(peerName, message); 
           	
           } else if (cmd == MessageType.GET_MSG_COUNT.code) { //OUTGOING
@@ -232,16 +230,18 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           	LOG.info("Got MessageType.GET_PEERNAME id: "+id);
           	
           	WritableUtils.writeVInt(stream, MessageType.GET_PEERNAME.code);
-          	if (id!=-1)
-          		Text.writeString(stream, peer.getPeerName(id));
-          		//stream.writeUTF(peer.getPeerName(id));
-          	else
+          	if (id==-1) { // -1 indicates get own PeerName
           		Text.writeString(stream, peer.getPeerName());
-          		//stream.writeUTF(peer.getPeerName());
-        	 
+          	} else if ((id<-1) || (id>=peer.getNumPeers())) {
+          		//if no PeerName for this index is found write emptyString
+          		Text.writeString(stream, "");
+          	} else {
+          		Text.writeString(stream, peer.getPeerName(id));
+          	}
           	flush();
           	LOG.info("Responded MessageType.GET_PEERNAME - peerName: "+
-          			((id!=-1)?peer.getPeerName(id):peer.getPeerName()));
+          			((id>=0 && id!=-1 && id<peer.getNumPeers())?
+          					peer.getPeerName(id):peer.getPeerName()));
           	
           } else if (cmd == MessageType.REOPEN_INPUT.code) { //INCOMING
         	LOG.info("Got MessageType.REOPEN_INPUT");

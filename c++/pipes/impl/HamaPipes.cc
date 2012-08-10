@@ -48,6 +48,8 @@ using namespace HadoopUtils;
 
 namespace HamaPipes {
 
+  bool logging;
+  
   /********************************************/
   /****************** BSPJob ******************/  
   /********************************************/
@@ -188,26 +190,26 @@ namespace HamaPipes {
       serializeString(peerName, *stream);
       serializeString(msg, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SEND_MSG peername: %s msg: %s\n",
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SEND_MSG peername: %s msg: %s\n",
               peerName.c_str(),msg.c_str());
     }
       
     virtual void getCurrentMessage() {
       serializeInt(GET_MSG, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG\n");
     } 
       
     virtual void getNumCurrentMessages() {
       serializeInt(GET_MSG_COUNT, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG_COUNT\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_MSG_COUNT\n");
     } 
       
     virtual void sync(){
       serializeInt(SYNC, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SYNC\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent SYNC\n");
     } 
       
     //virtual void getSuperstepCount() = 0;
@@ -216,7 +218,7 @@ namespace HamaPipes {
       serializeInt(GET_PEERNAME, *stream);
       serializeInt(index, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_PEERNAME\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_PEERNAME\n");
     } 
       
     //virtual void getPeerIndex() = 0;
@@ -224,7 +226,7 @@ namespace HamaPipes {
     virtual void getAllPeerNames() {
       serializeInt(GET_ALL_PEERNAME, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_ALL_PEERNAME\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent GET_ALL_PEERNAME\n");
     } 
 
     //virtual void getNumPeers() = 0;
@@ -235,32 +237,32 @@ namespace HamaPipes {
       serializeString(key, *stream);
       serializeString(value, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent WRITE_KEYVALUE key: %s value: %s\n",
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent WRITE_KEYVALUE key: %s value: %s\n",
               key.c_str(),value.c_str());
     }
       
     virtual void readNext() {
       serializeInt(READ_KEYVALUE, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent READ_KEYVALUE\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent READ_KEYVALUE\n");
     }
       
     virtual void reopenInput() {
       serializeInt(REOPEN_INPUT, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent REOPEN_INPUT\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent REOPEN_INPUT\n");
     }
     
     virtual void done() {
       serializeInt(DONE, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent DONE\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent DONE\n");
     }
       
     virtual void taskDone() {
       serializeInt(TASK_DONE, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent TASK_DONE\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent TASK_DONE\n");
     }
 
 
@@ -287,7 +289,7 @@ namespace HamaPipes {
       serializeString(name, *stream);
       serializeLong(amount, *stream);
       stream->flush();
-      fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent incrementCounter\n");
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent incrementCounter\n");
     }
       
     ~BinaryUpwardProtocol() {
@@ -324,7 +326,6 @@ namespace HamaPipes {
 
       
     virtual void nextEvent() {
-      fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent()\n");
       int32_t cmd;
       cmd = deserializeInt(*downStream);
       
@@ -349,35 +350,32 @@ namespace HamaPipes {
       }*/
               
       case START_MESSAGE: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got START_MESSAGE\n"); 
         int32_t prot;
         prot = deserializeInt(*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got START_MESSAGE prot: %d\n", prot); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got START_MESSAGE prot: %d\n", prot); 
         handler->start(prot);
         break;
       }
       case SET_BSPJOB_CONF: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF\n"); 
         int32_t entries;
         entries = deserializeInt(*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF entries: %d\n", entries); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF entries: %d\n", entries); 
         vector<string> result(entries);
         for(int i=0; i < entries; ++i) {
           string item;
           deserializeString(item, *downStream);
           result.push_back(item);
-          fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF add NewEntry: %s\n", item.c_str()); 
+          if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF add NewEntry: %s\n", item.c_str()); 
         }
         handler->setBSPJob(result);
         break;
       }
       case SET_INPUT_TYPES: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_INPUT_TYPES\n"); 
         string keyType;
         string valueType;
         deserializeString(keyType, *downStream);
         deserializeString(valueType, *downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_INPUT_TYPES keyType: %s valueType: %s\n",
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_INPUT_TYPES keyType: %s valueType: %s\n",
                 keyType.c_str(),valueType.c_str()); 
         handler->setInputTypes(keyType, valueType);
         break;
@@ -385,39 +383,33 @@ namespace HamaPipes {
       case READ_KEYVALUE: {
         deserializeString(key, *downStream);
         deserializeString(value, *downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got READ_KEYVALUE key: %s value: %s\n",
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got READ_KEYVALUE key: %s value: %s\n",
                 key.c_str(),value.c_str()); 
         handler->setKeyValue(key, value);
         break;
       }
       case RUN_SETUP: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_SETUP\n"); 
-        //string split;
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_SETUP\n"); 
         int32_t pipedInput;
         int32_t pipedOutput;
-        //deserializeString(split, *downStream);
         pipedInput = deserializeInt(*downStream);
         pipedOutput = deserializeInt(*downStream);
         handler->runSetup(pipedInput, pipedOutput);
         break;
       }
       case RUN_BSP: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_BSP\n"); 
-        //string split;
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_BSP\n"); 
         int32_t pipedInput;
         int32_t pipedOutput;
-        //deserializeString(split, *downStream);
         pipedInput = deserializeInt(*downStream);
         pipedOutput = deserializeInt(*downStream);
         handler->runBsp(pipedInput, pipedOutput);
         break;
       }
       case RUN_CLEANUP: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_CLEANUP\n"); 
-        //string split;
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got RUN_CLEANUP\n"); 
         int32_t pipedInput;
         int32_t pipedOutput;
-        //deserializeString(split, *downStream);
         pipedInput = deserializeInt(*downStream);
         pipedOutput = deserializeInt(*downStream);
         handler->runCleanup(pipedInput, pipedOutput);
@@ -426,45 +418,44 @@ namespace HamaPipes {
         
       case GET_MSG_COUNT: {
         int msgCount = deserializeInt(*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_MSG_COUNT msgCount: %d\n",msgCount); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_MSG_COUNT msgCount: %d\n",msgCount); 
         handler->setNewResult(msgCount);
         break;
       }
       case GET_MSG: {
         string msg;
         deserializeString(msg,*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_MSG msg: %s\n",msg.c_str());
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_MSG msg: %s\n",msg.c_str());
         handler->setNewResult(msg);
         break;
       }
       case GET_PEERNAME: {
         string peername;
         deserializeString(peername,*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_PEERNAME peername: %s\n",peername.c_str());
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_PEERNAME peername: %s\n",peername.c_str());
         handler->setNewResult(peername);
         break;
       }
       case GET_ALL_PEERNAME: {
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME\n"); 
         vector<string> peernames;
         int peernameCount = deserializeInt(*downStream);
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME peernameCount: %d\n",peernameCount);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME peernameCount: %d\n",peernameCount);
         string peername;
         for (int i=0; i<peernameCount; i++)  {
           deserializeString(peername,*downStream);
           peernames.push_back(peername);
-          fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME peername: %s\n",peername.c_str());
+          if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got GET_ALL_PEERNAME peername: %s\n",peername.c_str());
         }
         handler->setNewResult(peernames);
         break;
       }
               
       case CLOSE:
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got CLOSE\n"); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got CLOSE\n"); 
         handler->close();
         break;
       case ABORT:
-        fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got ABORT\n"); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got ABORT\n"); 
         handler->abort();
         break;
       default:
@@ -595,7 +586,7 @@ namespace HamaPipes {
     /* private Method */
     void setupReaderWriter(bool pipedInput, bool pipedOutput) {
         
-      fprintf(stderr,"HamaPipes::BSPContextImpl::setupReaderWriter - pipedInput: %s pipedOutput: %s\n",
+      if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::setupReaderWriter - pipedInput: %s pipedOutput: %s\n",
               (pipedInput)?"true":"false",(pipedOutput)?"true":"false");
 
       if (pipedInput && reader==NULL) {
@@ -676,7 +667,7 @@ namespace HamaPipes {
       done = true;
       hasTask = false;
       pthread_mutex_unlock(&mutexDone);
-      fprintf(stderr,"HamaPipes::BSPContextImpl::close - done: %s hasTask: %s\n",
+      if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::close - done: %s hasTask: %s\n",
                 (done)?"true":"false",(hasTask)?"true":"false");
     }
       
@@ -775,7 +766,7 @@ namespace HamaPipes {
           protocol->nextEvent();
         
       isNewResultString = false;
-      fprintf(stderr,"HamaPipes::BSPContextImpl::getMessage - NewResultString: %s\n",resultString.c_str());
+      if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::getMessage - NewResultString: %s\n",resultString.c_str());
       return resultString;
     }
 
@@ -818,7 +809,7 @@ namespace HamaPipes {
       while (!isNewResultString)
         protocol->nextEvent();
     
-      fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName - NewResultString: %s\n",resultString.c_str());
+      if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName - NewResultString: %s\n",resultString.c_str());
       isNewResultString = false;
       return resultString;
     }
@@ -832,7 +823,7 @@ namespace HamaPipes {
       while (!isNewResultString)
         protocol->nextEvent();
   
-      fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName - NewResultString: %s\n",resultString.c_str());
+      if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::getPeerName - NewResultString: %s\n",resultString.c_str());
       isNewResultString = false;
         
       //string &tmp = *resultString;
@@ -901,8 +892,8 @@ namespace HamaPipes {
       _key = currentKey;
       _value = currentValue;
       
-      if (_key.empty() && _value.empty())  
-        fprintf(stderr,"HamaPipes::BSPContextImpl::readNext - Empty KeyValuePair\n");
+      if (logging && _key.empty() && _value.empty())  
+        if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::readNext - Empty KeyValuePair\n");
         
       return (!_key.empty() && !_value.empty());
     }
@@ -947,9 +938,8 @@ namespace HamaPipes {
     } 
     */
     void waitForTask() {
-        fprintf(stderr,"HamaPipes::BSPContextImpl::waitForTask()\n");
         while (!done && !hasTask) {		
-            fprintf(stderr,"HamaPipes::BSPContextImpl::waitForTask - done: %s hasTask: %s\n",
+            if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::waitForTask - done: %s hasTask: %s\n",
                     (done)?"true":"false",(hasTask)?"true":"false");
             protocol->nextEvent();
         }
@@ -1030,7 +1020,7 @@ namespace HamaPipes {
           addr.sin_family = AF_INET;
           addr.sin_port = htons(toInt(portStr));
           addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-          fprintf(stderr,"HamaPipes::ping - connected to GroomServer Port: %s\n", portStr);   
+          if(logging)fprintf(stderr,"HamaPipes::ping - connected to GroomServer Port: %s\n", portStr);   
           HADOOP_ASSERT(connect(sock, (sockaddr*) &addr, sizeof(addr)) == 0,
                         string("problem connecting command socket: ") +
                         strerror(errno));
@@ -1058,7 +1048,7 @@ namespace HamaPipes {
     }
     return NULL;
   }
-
+    
   /**
    * Run the assigned task in the framework.
    * The user's main function should set the various functions using the 
@@ -1067,6 +1057,9 @@ namespace HamaPipes {
    */
   bool runTask(const Factory& factory) {
     try {
+      logging = (toInt(getenv("hama.pipes.logging"))==0)?false:true;  
+      if(logging)fprintf(stderr,"HamaPipes::runTask - logging is: %s\n", (logging)?"true":"false"); 
+        
       BSPContextImpl* context = new BSPContextImpl(factory);
       Protocol* connection;
         
@@ -1104,7 +1097,7 @@ namespace HamaPipes {
                                      + strerror(errno));
           
         connection = new BinaryProtocol(stream, context, outStream);
-        fprintf(stderr,"HamaPipes::runTask - connected to GroomServer Port: %s\n", portStr);  
+        if(logging)fprintf(stderr,"HamaPipes::runTask - connected to GroomServer Port: %s\n", portStr);  
           
       } else if (getenv("hama.pipes.command.file")) {
         char* filename = getenv("hama.pipes.command.file");

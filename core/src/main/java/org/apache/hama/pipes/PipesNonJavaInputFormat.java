@@ -37,6 +37,11 @@ import org.apache.hama.bsp.TextInputFormat;
  * {@link PipesDummyRecordReader}, everything else left for the 'actual'
  * InputFormat specified by the user which is given by
  * <i>mapred.pipes.user.inputformat</i>.
+ * 
+ * Adapted from Hadoop Pipes
+ * 
+ * @author Martin Illecker
+ * 
  */
 class PipesNonJavaInputFormat implements
 		InputFormat<FloatWritable, NullWritable> {

@@ -27,6 +27,11 @@ import org.apache.hadoop.io.Writable;
  * The abstract description of the downward (from Java to C++) Pipes protocol.
  * All of these calls are asynchronous and return before the message has been
  * processed.
+ * 
+ * Adapted from Hadoop Pipes
+ * 
+ * @author Martin Illecker
+ * 
  */
 interface DownwardProtocol<K extends Writable, V extends Writable> {
 

@@ -60,6 +60,11 @@ import org.apache.hama.util.GenericOptionsParser;
 /**
  * The main entry point and job submitter. It may either be used as a command
  * line-based or API-based method to launch Pipes jobs.
+ * 
+ * Adapted from Hadoop Pipes
+ * 
+ * @author Martin Illecker
+ * 
  */
 public class Submitter implements Tool {
 
@@ -292,6 +297,7 @@ public class Submitter implements Tool {
 		// default map output types to Text
 		if (!getIsJavaBSP(job.getConf())) {
 			job.setBspClass(PipesBSP.class);
+			job.setJarByClass(PipesBSP.class);
 			// job.setMapRunnerClass(PipesBSPRunner.class);
 			// conf.setGPUMapRunnerClass(PipesMapRunner.class);
 

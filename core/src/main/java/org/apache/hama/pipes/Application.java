@@ -19,9 +19,7 @@
 
 package org.apache.hama.pipes;
 
-import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
@@ -48,6 +46,11 @@ import org.apache.hama.bsp.TaskLog;
 /**
  * This class is responsible for launching and communicating with the child
  * process.
+ * 
+ * Adapted from Hadoop Pipes
+ * 
+ * @author Martin Illecker
+ * 
  */
 class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable> {
 
@@ -83,6 +86,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     // add TMPDIR environment variable with the value of java.io.tmpdir
     env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
     env.put("hama.pipes.command.port",Integer.toString(serverSocket.getLocalPort()));
+    env.put("hama.pipes.logging",peer.getConfiguration().getBoolean("hama.pipes.logging", false)?"1":"0");
 
     List<String> cmd = new ArrayList<String>();
     String interpretor = peer.getConfiguration().get("hama.pipes.executable.interpretor");
@@ -125,10 +129,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
     
     LOG.info("STDOUT: "+stdout.getAbsolutePath());
-    stdout.createNewFile();
-    BufferedWriter out = new BufferedWriter(new FileWriter(stdout));
-    out.write("TEST");
-    
+    //stdout.createNewFile();
     LOG.info("DEBUG: cmd: " + cmd);
 
     process = runClient(cmd, env); //fork c++ binary
