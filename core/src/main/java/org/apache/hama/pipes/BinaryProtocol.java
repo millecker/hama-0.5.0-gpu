@@ -100,10 +100,10 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     private DataInputStream inStream;
     private K2 key;
     private V2 value;
-    private BytesWritable message;
     private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
 
-    public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream) throws IOException {
+    @SuppressWarnings("unchecked")
+	public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream) throws IOException {
     
       inStream = new DataInputStream(new BufferedInputStream(stream,BUFFER_SIZE));
       
@@ -114,12 +114,6 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       
       this.value = (V2) ReflectionUtils.newInstance(
        		  (Class<? extends V2>)peer.getConfiguration().getClass("bsp.output.value.class", Object.class),
-    		  peer.getConfiguration());
-       
-      /* TODO */
-      /* Message will always be transmitted binary */
-      this.message = (BytesWritable) ReflectionUtils.newInstance(
-    		  BytesWritable.class,
     		  peer.getConfiguration());
     }
 
@@ -194,9 +188,10 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    
           } else if (cmd == MessageType.SEND_MSG.code) { //INCOMING
           	String peerName = Text.readString(inStream);
-          	readObject(message);
+          	BytesWritable msg = new BytesWritable();
+          	readObject(msg);
             LOG.info("Got MessageType.SEND_MSG to peerName: "+peerName);
-          	peer.send(peerName, message); 
+          	peer.send(peerName, msg); 
           	
           } else if (cmd == MessageType.GET_MSG_COUNT.code) { //OUTGOING
         	WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
