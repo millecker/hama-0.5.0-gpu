@@ -138,8 +138,11 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           	peer.write(key, value);
           
           } else if (cmd == MessageType.READ_KEYVALUE.code) { //OUTGOING
+
+        	boolean nullinput = peer.getConfiguration().get("bsp.input.format.class") == null 
+        			|| peer.getConfiguration().get("bsp.input.format.class").equals("org.apache.hama.bsp.NullInputFormat");
         	  
-        	try {
+        	if (!nullinput) {
         		KeyValuePair<K1,V1> pair = peer.readNext();
           
         		WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
@@ -150,7 +153,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
               	LOG.info("Responded MessageType.READ_KEYVALUE - Key: "
               			+pair.getKey()+" Value: "+pair.getValue());
               
-       		} catch (NullPointerException e) { //NullPointerException if peer.readNext() fails
+       		} else {
        			/* TODO */
        			/* Send empty Strings to show no KeyValue pair is available */
        			WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
