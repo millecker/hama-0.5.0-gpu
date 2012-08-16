@@ -24,7 +24,7 @@
 <configuration>
   <property>
     <name>bsp.master.address</name>
-    <value>local</value>
+    <value>localhost:40001</value>
     <description>The address of the bsp master server. Either the
     literal string "local" or a host[:port] (where host is a name or
     IP address) for distributed mode.
@@ -32,7 +32,7 @@
   </property>
   <property>
     <name>bsp.master.port</name>
-    <value>40000</value>
+    <value>40001</value>
     <description>The port master should bind to.</description>
   </property>
   <property>
