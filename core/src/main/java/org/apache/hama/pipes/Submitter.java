@@ -72,7 +72,7 @@ public class Submitter implements Tool {
 	private HamaConfiguration conf;
 
 	public Submitter() {
-		this(new HamaConfiguration());
+		this.conf = new HamaConfiguration();
 	}
 
 	public Submitter(HamaConfiguration conf) {
@@ -83,7 +83,7 @@ public class Submitter implements Tool {
 	public HamaConfiguration getConf() {
 		return this.conf;
 	}
-
+	
 	@Override
 	public void setConf(Configuration conf) {
 		this.conf = (HamaConfiguration) conf;
@@ -95,8 +95,8 @@ public class Submitter implements Tool {
 	 * @param conf
 	 * @return the URI where the application's executable is located
 	 */
-	public static String getExecutable(Configuration job) {
-		return job.get("hama.pipes.executable");
+	public static String getExecutable(Configuration conf) {
+		return conf.get("hama.pipes.executable");
 	}
 
 	/**
@@ -107,16 +107,15 @@ public class Submitter implements Tool {
 	 * @param executable
 	 *            The URI of the application's executable.
 	 */
-	public static void setExecutable(Configuration job, String executable) {
-		job.set("hama.pipes.executable", executable);
+	public static void setExecutable(Configuration conf, String executable) {
+		conf.set("hama.pipes.executable", executable);
 	}
-
-	public static String getCPUExecutable(Configuration job) {
-		return getExecutable(job);
+	
+	public static String getCPUExecutable(Configuration conf) {
+		return getExecutable(conf);
 	}
-
-	public static void setCPUExecutable(Configuration job, String executable) {
-		setExecutable(job, executable);
+	public static void setCPUExecutable(Configuration conf, String executable) {
+		setExecutable(conf, executable);
 	}
 
 	/**
@@ -127,8 +126,8 @@ public class Submitter implements Tool {
 	 * @param executable
 	 *            The URI of the application's executable.
 	 */
-	public static void setGPUExecutable(Configuration job, String executable) {
-		job.set("hama.pipes.gpu.executable", executable);
+	public static void setGPUExecutable(Configuration conf, String executable) {
+		conf.set("hama.pipes.gpu.executable", executable);
 	}
 
 	/**
@@ -137,8 +136,8 @@ public class Submitter implements Tool {
 	 * @param conf
 	 * @return the URI where the application's executable is located
 	 */
-	public static String getGPUExecutable(Configuration job) {
-		return job.get("hama.pipes.gpu.executable");
+	public static String getGPUExecutable(Configuration conf) {
+		return conf.get("hama.pipes.gpu.executable");
 	}
 
 	/**
@@ -149,8 +148,8 @@ public class Submitter implements Tool {
 	 * @param value
 	 *            the new value
 	 */
-	public static void setIsJavaBSP(Configuration job, boolean value) {
-		job.setBoolean("hama.pipes.java.bsp", value);
+	public static void setIsJavaBSP(Configuration conf, boolean value) {
+		conf.setBoolean("hama.pipes.java.bsp", value);
 	}
 
 	/**
@@ -160,8 +159,8 @@ public class Submitter implements Tool {
 	 *            the configuration to check
 	 * @return is it a Java BSP?
 	 */
-	public static boolean getIsJavaBSP(Configuration job) {
-		return job.getBoolean("hama.pipes.java.bsp", false);
+	public static boolean getIsJavaBSP(Configuration conf) {
+		return conf.getBoolean("hama.pipes.java.bsp", false);
 	}
 
 	/**
@@ -172,8 +171,8 @@ public class Submitter implements Tool {
 	 * @param value
 	 *            the new value
 	 */
-	public static void setIsJavaRecordReader(Configuration job, boolean value) {
-		job.setBoolean("hama.pipes.java.recordreader", value);
+	public static void setIsJavaRecordReader(Configuration conf, boolean value) {
+		conf.setBoolean("hama.pipes.java.recordreader", value);
 	}
 
 	/**
@@ -183,8 +182,8 @@ public class Submitter implements Tool {
 	 *            the configuration to check
 	 * @return is it a Java RecordReader?
 	 */
-	public static boolean getIsJavaRecordReader(Configuration job) {
-		return job.getBoolean("hama.pipes.java.recordreader", false);
+	public static boolean getIsJavaRecordReader(Configuration conf) {
+		return conf.getBoolean("hama.pipes.java.recordreader", false);
 	}
 
 	/**
@@ -195,8 +194,8 @@ public class Submitter implements Tool {
 	 * @param value
 	 *            the new value to set
 	 */
-	public static void setIsJavaRecordWriter(Configuration job, boolean value) {
-		job.setBoolean("hama.pipes.java.recordwriter", value);
+	public static void setIsJavaRecordWriter(Configuration conf, boolean value) {
+		conf.setBoolean("hama.pipes.java.recordwriter", value);
 	}
 
 	/**
@@ -206,8 +205,8 @@ public class Submitter implements Tool {
 	 *            the configuration to check
 	 * @return true, if the output of the job will be written by Java
 	 */
-	public static boolean getIsJavaRecordWriter(Configuration job) {
-		return job.getBoolean("hama.pipes.java.recordwriter", false);
+	public static boolean getIsJavaRecordWriter(Configuration conf) {
+		return conf.getBoolean("hama.pipes.java.recordwriter", false);
 	}
 
 	/**
@@ -221,9 +220,9 @@ public class Submitter implements Tool {
 	 * @param value
 	 *            the new "default" value to set
 	 */
-	private static void setIfUnset(BSPJob job, String key, String value) {
-		if (job.get(key) == null) {
-			job.set(key, value);
+	private static void setIfUnset(Configuration conf, String key, String value) {
+		if (conf.get(key) == null) {
+			conf.set(key, value);
 		}
 	}
 
@@ -235,8 +234,8 @@ public class Submitter implements Tool {
 	 * @param cls
 	 *            the user's partitioner class
 	 */
-	static void setJavaPartitioner(Configuration job, Class cls) {
-		job.set("hama.pipes.partitioner", cls.getName());
+	static void setJavaPartitioner(Configuration conf, Class cls) {
+		conf.set("hama.pipes.partitioner", cls.getName());
 	}
 
 	/**
@@ -246,8 +245,8 @@ public class Submitter implements Tool {
 	 *            the configuration to look in
 	 * @return the class that the user submitted
 	 */
-	static Class<? extends Partitioner> getJavaPartitioner(Configuration job) {
-		return job.getClass("hama.pipes.partitioner", HashPartitioner.class,
+	static Class<? extends Partitioner> getJavaPartitioner(Configuration conf) {
+		return conf.getClass("hama.pipes.partitioner", HashPartitioner.class,
 				Partitioner.class);
 	}
 
@@ -264,8 +263,8 @@ public class Submitter implements Tool {
 	 *            the configuration to check
 	 * @return will the framework save the command file?
 	 */
-	public static boolean getKeepCommandFile(Configuration job) {
-		return job.getBoolean("hama.pipes.command-file.keep", false);
+	public static boolean getKeepCommandFile(Configuration conf) {
+		return conf.getBoolean("hama.pipes.command-file.keep", false);
 	}
 
 	/**
@@ -276,8 +275,8 @@ public class Submitter implements Tool {
 	 * @param keep
 	 *            the new value
 	 */
-	public static void setKeepCommandFile(Configuration job, boolean keep) {
-		job.setBoolean("hama.pipes.command-file.keep", keep);
+	public static void setKeepCommandFile(Configuration conf, boolean keep) {
+		conf.setBoolean("hama.pipes.command-file.keep", keep);
 	}
 
 	/**
@@ -298,9 +297,7 @@ public class Submitter implements Tool {
 		if (!getIsJavaBSP(job.getConf())) {
 			job.setBspClass(PipesBSP.class);
 			job.setJarByClass(PipesBSP.class);
-			// job.setMapRunnerClass(PipesBSPRunner.class);
-			// conf.setGPUMapRunnerClass(PipesMapRunner.class);
-
+		
 			// Save the user's partitioner and hook in our's.
 			// setJavaPartitioner(job, job.getPartitionerClass());
 			// job.setPartitionerClass(PipesPartitioner.class);
@@ -315,16 +312,16 @@ public class Submitter implements Tool {
 		String textClassname = Text.class.getName();
 		// setIfUnset(job, "mapred.mapoutput.key.class", textClassname);
 		// setIfUnset(job, "mapred.mapoutput.value.class", textClassname);
-		setIfUnset(job, "bsp.output.key.class", textClassname);
-		setIfUnset(job, "bsp.output.value.class", textClassname);
+		setIfUnset(job.getConf(), "bsp.output.key.class", textClassname);
+		setIfUnset(job.getConf(), "bsp.output.value.class", textClassname);
+		
+		// TODO Set default Job name
+		setIfUnset(job.getConf(), "bsp.job.name", "Hama Pipes Job");
 
 		LOG.info("DEBUG: isJavaRecordReader: "
 				+ getIsJavaRecordReader(job.getConf()));
 		LOG.info("DEBUG: BspClass: " + job.getBspClass());
-		// LOG.info("DEBUG: MapRunnerClass: " + job.getMapRunnerClass());
-		// LOG.info("DEBUG: PartitionerClass: " + conf.getPartitionerClass());
-		// LOG.info("DEBUG: ReducerClass: " + conf.getReducerClass());
-
+	
 		// Use PipesNonJavaInputFormat if necessary to handle progress reporting
 		// from C++ RecordReaders ...
 		/*
@@ -333,15 +330,22 @@ public class Submitter implements Tool {
 		 * job.getInputFormat().getClass(), InputFormat.class);
 		 * job.setInputFormat(PipesNonJavaInputFormat.class); }
 		 */
-
+		
+		LOG.info("DEBUG: bsp.master.address: " 
+				+job.getConf().get("bsp.master.address"));
+		LOG.info("DEBUG: bsp.local.tasks.maximum: " 
+				+job.getConf().get("bsp.local.tasks.maximum"));
+		LOG.info("DEBUG: fs.default.name: " 
+				+job.getConf().get("fs.default.name"));
+				
 		// conf.setInputFormat(NLineInputFormat.class);
 		LOG.info("DEBUG: InputFormat: " + job.getInputFormat());
 
 		// String exec = getExecutable(conf);
 		String cpubin = getCPUExecutable(job.getConf());
 		String gpubin = getGPUExecutable(job.getConf());
-		LOG.info("DEBUG: cpubin = '" + cpubin + "'");
-		LOG.info("DEBUG: gpubin = '" + gpubin + "'");
+		LOG.info("DEBUG: CPUbin = '" + cpubin + "'");
+		LOG.info("DEBUG: GPUbin = '" + gpubin + "'");
 		// if (exec == null) {
 		if (cpubin == null && gpubin == null) {
 			throw new IllegalArgumentException(

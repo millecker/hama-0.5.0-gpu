@@ -37,12 +37,9 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.util.StringUtils;
-import org.apache.hadoop.util.Tool;
-import org.apache.hadoop.util.ToolRunner;
 import org.apache.hama.HamaConfiguration;
 
 /**
@@ -59,8 +56,6 @@ import org.apache.hama.HamaConfiguration;
  * <p><blockquote><pre>
  *     -conf &lt;configuration file&gt;     specify a configuration file
  *     -D &lt;property=value&gt;            use value for given property
- *     -fs &lt;local|namenode:port&gt;      specify a namenode
- *     -jt &lt;local|jobtracker:port&gt;    specify a job tracker
  *     -files &lt;comma separated list of files&gt;    specify comma separated
  *                            files to be copied to the map reduce cluster
  *     -libjars &lt;comma separated list of jars&gt;   specify comma separated
@@ -82,31 +77,16 @@ import org.apache.hama.HamaConfiguration;
  *
  * <p>Examples:</p>
  * <p><blockquote><pre>
- * $ bin/hadoop dfs -fs darwin:8020 -ls /data
- * list /data directory in dfs with namenode darwin:8020
+ * $ bin/hama pipes -fs darwin:8020 
  * 
- * $ bin/hadoop dfs -D fs.default.name=darwin:8020 -ls /data
- * list /data directory in dfs with namenode darwin:8020
+ * $ bin/hama pipes -D fs.default.name=darwin:8020
  *     
- * $ bin/hadoop dfs -conf hadoop-site.xml -ls /data
- * list /data directory in dfs with conf specified in hadoop-site.xml
- *     
- * $ bin/hadoop job -D mapred.job.tracker=darwin:50020 -submit job.xml
- * submit a job to job tracker darwin:50020
- *     
- * $ bin/hadoop job -jt darwin:50020 -submit job.xml
- * submit a job to job tracker darwin:50020
- *     
- * $ bin/hadoop job -jt local -submit job.xml
- * submit a job to local runner
+ * $ bin/hama pipes -conf hama-site.xml
  * 
- * $ bin/hadoop jar -libjars testlib.jar 
+ * $ bin/hama jar -libjars testlib.jar 
  * -archives test.tgz -files file.txt inputjar args
  * job submission with libjars, files and archives
  * </pre></blockquote></p>
- *
- * @see Tool
- * @see ToolRunner
  */
 public class GenericOptionsParser {
 
@@ -136,13 +116,13 @@ public class GenericOptionsParser {
   }
   
   /** 
-   * Create a <code>GenericOptionsParser<code> to parse only the generic Hadoop  
+   * Create a <code>GenericOptionsParser<code> to parse only the generic Hama  
    * arguments. 
    * 
    * The array of string arguments other than the generic arguments can be 
    * obtained by {@link #getRemainingArgs()}.
    * 
-   * @param conf the <code>Configuration</code> to modify.
+   * @param conf the <code>HamaConfiguration</code> to modify.
    * @param args command-line arguments.
    * @throws IOException 
    */
@@ -158,7 +138,7 @@ public class GenericOptionsParser {
    * The resulting <code>CommandLine</code> object can be obtained by 
    * {@link #getCommandLine()}.
    * 
-   * @param conf the configuration to modify  
+   * @param conf the HamaConfiguration to modify  
    * @param options options built by the caller 
    * @param args User-specified arguments
    * @throws IOException 
@@ -180,8 +160,8 @@ public class GenericOptionsParser {
   }
 
   /**
-   * Get the modified configuration
-   * @return the configuration that has the modified parameters.
+   * Get the modified HamaConfiguration
+   * @return the HamaConfiguration that has the modified parameters.
    */
   public HamaConfiguration getConfiguration() {
     return conf;
@@ -192,7 +172,7 @@ public class GenericOptionsParser {
    * to process the parsed arguments. 
    * 
    * Note: If the object is created with 
-   * {@link #GenericOptionsParser(Configuration, String[])}, then returned 
+   * {@link #GenericOptionsParser(HamaConfiguration, String[])}, then returned 
    * object will only contain parsed generic options.
    * 
    * @return <code>CommandLine</code> representing list of arguments 
@@ -207,16 +187,6 @@ public class GenericOptionsParser {
    */
   @SuppressWarnings("static-access")
   private static Options buildGeneralOptions(Options opts) {
-    /*
-    Option fs = OptionBuilder.withArgName("local|namenode:port")
-    .hasArg()
-    .withDescription("specify a namenode")
-    .create("fs");
-    Option jt = OptionBuilder.withArgName("local|jobtracker:port")
-    .hasArg()
-    .withDescription("specify a job tracker")
-    .create("jt");
-    */
 	Option oconf = OptionBuilder.withArgName("configuration file")
     .hasArg()
     .withDescription("specify an application configuration file")
@@ -245,8 +215,6 @@ public class GenericOptionsParser {
     .withDescription("name of the file with the tokens")
     .create("tokenCacheFile");
 
-    //opts.addOption(fs);
-    //opts.addOption(jt);
     opts.addOption(oconf);
     opts.addOption(property);
     opts.addOption(libjars);
@@ -264,19 +232,10 @@ public class GenericOptionsParser {
    */
   private void processGeneralOptions(HamaConfiguration conf,
       CommandLine line) throws IOException {
-    /*
-	if (line.hasOption("fs")) {
-      FileSystem.setDefaultUri(conf, line.getOptionValue("fs"));
-    }
 
-    if (line.hasOption("jt")) {
-      conf.set("mapred.job.tracker", line.getOptionValue("jt"));
-    }
-    */
     if (line.hasOption("conf")) {
       String[] values = line.getOptionValues("conf");
       for(String value : values) {
-    	LOG.info("DEBUG: add Resource "+value);
         conf.addResource(new Path(value));
       }
     }
@@ -309,6 +268,7 @@ public class GenericOptionsParser {
         }
       }
     }
+    
     conf.setBoolean("hama.used.genericoptionsparser", true);
     
     // tokensFile

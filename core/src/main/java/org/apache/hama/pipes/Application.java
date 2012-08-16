@@ -28,16 +28,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import javax.crypto.SecretKey;
-
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.mapreduce.security.SecureShuffleUtils;
-import org.apache.hadoop.mapreduce.security.token.JobTokenSecretManager;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.TaskAttemptID;
@@ -58,34 +55,31 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
   private ServerSocket serverSocket;
   private Process process;
   private Socket clientSocket;
-  //private OutputHandler<K2, V2> handler;
+
   private DownwardProtocol<K1, V1> downlink;
-  private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
- 
+  //private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
+  
   static final boolean WINDOWS = System.getProperty("os.name").startsWith("Windows");
 
   /**
    * Start the child process to handle the task for us.
    * 
-   * @param conf the task's configuration
-   * @param recordReader the fake record reader to update progress with
-   * @param output the collector to send output to
-   * @param reporter the reporter for the task
-   * @param outputKeyClass the class of the output keys
-   * @param outputValueClass the class of the output values
+   * @param peer the current peer including the task's configuration
    * @throws InterruptedException
    * @throws IOException
    */
   Application(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) 
 		  throws IOException, InterruptedException {
  
-	this.peer = peer;
+	//this.peer = peer;
 
     serverSocket = new ServerSocket(0);
     Map<String, String> env = new HashMap<String, String>();
     // add TMPDIR environment variable with the value of java.io.tmpdir
     env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
     env.put("hama.pipes.command.port",Integer.toString(serverSocket.getLocalPort()));
+    
+    /* Set Logging Environment from Configuration */
     env.put("hama.pipes.logging",peer.getConfiguration().getBoolean("hama.pipes.logging", false)?"1":"0");
 
     List<String> cmd = new ArrayList<String>();
@@ -96,15 +90,25 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
 
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
-    try {
-      executable = DistributedCache.getCacheFiles(peer.getConfiguration())[0].toString();
+    try {  
+      LOG.info("DEBUG LocalCacheFilesCount: "+DistributedCache.getLocalCacheFiles(peer.getConfiguration()).length);      
+      for (Path u : DistributedCache.getLocalCacheFiles(peer.getConfiguration()))	
+    	  LOG.info("DEBUG LocalCacheFiles: "+u);
+      
+      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0].toString();
+      
       LOG.info("DEBUG: executable: " +executable);
+      
     } catch (Exception e) {
       // if executable (GPU) missing?
       //LOG.info("ERROR: "
     	//    + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
     	//  + " executable is missing!");
-      throw new IOException("Executable is missing! ");
+    	
+      LOG.error("Executable: " +executable + " fs.default.name: " 
+  			+peer.getConfiguration().get("fs.default.name"));
+      
+      throw new IOException("Executable is missing!");
     }
 
     if (!new File(executable).canExecute()) {
@@ -128,11 +132,31 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     long logLength = TaskLog.getTaskLogLength(peer.getConfiguration());
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
     
+    if (!stdout.getParentFile().exists()) {
+    	stdout.getParentFile().mkdirs();
+    	LOG.info("STDOUT: "+stdout.getParentFile().getAbsolutePath()+" created!");
+    }
     LOG.info("STDOUT: "+stdout.getAbsolutePath());
-    //stdout.createNewFile();
+    
+    if (!stderr.getParentFile().exists()) {
+    	stderr.getParentFile().mkdirs();
+    	LOG.info("STDERR: "+stderr.getParentFile().getAbsolutePath()+" created!");
+    }
+    LOG.info("STDERR: "+stderr.getAbsolutePath());
+
+    /* MapReduce */
+    /* bash, -c, export JVM_PID=`echo $$`
+    exec '/tmp/hadoop-bafu/mapred/local/taskTracker/distcache/-7143918130315307681_1190230872_693782477/localhostbin/cpu-wordcount'  
+    < /dev/null  
+    1>> /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0/stdout 
+    2>> /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0/stderr
+    */
     LOG.info("DEBUG: cmd: " + cmd);
 
     process = runClient(cmd, env); //fork c++ binary
+    
+    LOG.info("DEBUG: waiting for Client at "+serverSocket.getLocalSocketAddress());
+    serverSocket.setSoTimeout(2000);
     clientSocket = serverSocket.accept();
     
     //handler = new OutputHandler<K2, V2>(output, recordReader);
@@ -218,12 +242,6 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     }
     Process result = builder.start();
     return result;
-  }
-
-  public static String createDigest(byte[] password, String data)
-      throws IOException {
-    SecretKey key = JobTokenSecretManager.createSecretKey(password);
-    return SecureShuffleUtils.hashFromString(data, key);
   }
 
 }
