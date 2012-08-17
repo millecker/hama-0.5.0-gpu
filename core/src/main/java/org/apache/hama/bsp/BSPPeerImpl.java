@@ -19,6 +19,7 @@ package org.apache.hama.bsp;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -26,8 +27,11 @@ import java.util.Map.Entry;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.FileUtil;
+import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataInputBuffer;
@@ -178,6 +182,47 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
 
   }
 
+  /**
+   * Transfers DistributedCache files into the local cache files. Also creates
+   * symbolic links for URIs specified with a fragment if 
+   * DistributedCache.getSymlinks() is true.
+   * 
+   * @throws IOException 
+   *          If a DistributedCache file cannot be found.
+   */
+  public final void moveLocalFiles()
+      throws IOException {	
+	StringBuilder files = new StringBuilder();
+  	boolean first = true;
+  	if (DistributedCache.getCacheFiles(conf)!=null) {
+  		for (URI uri : DistributedCache.getCacheFiles(conf)) {
+  			if (uri!=null) {
+  				if (!first) {
+  					files.append(",");
+  				}
+	  			if (null != uri.getFragment()
+	  				&& DistributedCache.getSymlink(conf)) {
+	  			
+	  				FileUtil.symLink(uri.getPath(), uri.getFragment());
+					files.append(uri.getFragment()).append(",");
+				}
+	  			FileSystem hdfs = FileSystem.get(conf);
+	  			Path pathSrc = new Path(uri.getPath());
+	  			if(hdfs.exists(pathSrc)) {
+	  				LocalFileSystem local = LocalFileSystem.getLocal(conf);
+	  				Path pathDst = new Path(local.getWorkingDirectory(),pathSrc.getName());
+	  				hdfs.copyToLocalFile(pathSrc, pathDst);
+	  				files.append(pathDst.toUri().getPath());
+	  			}
+            	first = false;
+          	}
+  		}
+  	}
+    if (files.length()>0) {
+       DistributedCache.addLocalFiles(conf, files.toString());
+    }
+  }
+  
   @SuppressWarnings("unchecked")
   public final void initialize() throws Exception {
     syncClient = SyncServiceFactory.getSyncClient(conf);
@@ -201,6 +246,13 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
       }
     };
 
+    // Move files from DistributedCache to the local cache
+    // and set DistributedCache.LocalFiles
+    try {
+    	moveLocalFiles();
+    } catch (Exception e) {
+        LOG.error(e);
+    }
   }
 
   @SuppressWarnings("unchecked")
@@ -361,6 +413,26 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
         currentTaskStatus.getSuperstepCount());
   }
 
+  /**
+   * Delete files from the local cache
+   * 
+   * @throws IOException 
+   *          If a DistributedCache file cannot be found.
+   */
+  public void deleteLocalFiles() throws IOException {	
+  	if (DistributedCache.getLocalCacheFiles(conf)!=null) {
+  		for (Path path : DistributedCache.getLocalCacheFiles(conf)) {
+  			if (path!=null) {
+  				LocalFileSystem local = LocalFileSystem.getLocal(conf);
+	  			if(local.exists(path)) {
+	  				local.delete(path,true); //recursive true
+	  			}
+          	}
+  		}
+  	}
+  	DistributedCache.setLocalFiles(conf, "");
+  }
+  
   public final void close() {
     // there are many catches, because we want to close always every component
     // even if the one before failed.
@@ -388,6 +460,12 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
       messenger.close();
     } catch (Exception e) {
       LOG.error(e);
+    }
+    // Delete files from the local cache
+    try {
+    	deleteLocalFiles();
+    } catch (Exception e) {
+        LOG.error(e);
     }
   }
 
