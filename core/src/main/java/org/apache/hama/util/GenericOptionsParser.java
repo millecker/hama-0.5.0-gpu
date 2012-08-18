@@ -44,16 +44,21 @@ import org.apache.hama.HamaConfiguration;
 
 /**
  * <code>GenericOptionsParser</code> is a utility to parse command line
- * arguments generic to the Hama framework. 
+ * arguments generic to the Hama framework.
  * 
- * <code>GenericOptionsParser</code> recognizes several standarad command 
- * line arguments, enabling applications to easily specify a bsp and
- * additional configuration resources etc.
+ * <code>GenericOptionsParser</code> recognizes several standarad command line
+ * arguments, enabling applications to easily specify a bsp and additional
+ * configuration resources etc.
  * 
  * <h4 id="GenericOptions">Generic Options</h4>
  * 
- * <p>The supported generic options are:</p>
- * <p><blockquote><pre>
+ * <p>
+ * The supported generic options are:
+ * </p>
+ * <p>
+ * <blockquote>
+ * 
+ * <pre>
  *     -conf &lt;configuration file&gt;     specify a configuration file
  *     -D &lt;property=value&gt;            use value for given property
  *     -files &lt;comma separated list of files&gt;    specify comma separated
@@ -62,21 +67,37 @@ import org.apache.hama.HamaConfiguration;
  *                            jar files to include in the classpath.
  *     -archives &lt;comma separated list of archives&gt;    specify comma
  *             separated archives to be unarchived on the compute machines.
-
- * </pre></blockquote></p>
  * 
- * <p>The general command line syntax is:</p>
- * <p><tt><pre>
+ * </pre>
+ * 
+ * </blockquote>
+ * </p>
+ * 
+ * <p>
+ * The general command line syntax is:
+ * </p>
+ * <p>
+ * <tt><pre>
  * bin/hama command [genericOptions] [commandOptions]
- * </pre></tt></p>
+ * </pre></tt>
+ * </p>
  * 
- * <p>Generic command line arguments <strong>might</strong> modify 
- * <code>Configuration </code> objects, given to constructors.</p>
+ * <p>
+ * Generic command line arguments <strong>might</strong> modify
+ * <code>Configuration </code> objects, given to constructors.
+ * </p>
  * 
- * <p>The functionality is implemented using Commons CLI.</p>
- *
- * <p>Examples:</p>
- * <p><blockquote><pre>
+ * <p>
+ * The functionality is implemented using Commons CLI.
+ * </p>
+ * 
+ * <p>
+ * Examples:
+ * </p>
+ * <p>
+ * <blockquote>
+ * 
+ * <pre>
  * $ bin/hama pipes -fs darwin:8020 
  * 
  * $ bin/hama pipes -D fs.default.name=darwin:8020
@@ -86,7 +107,10 @@ import org.apache.hama.HamaConfiguration;
  * $ bin/hama jar -libjars testlib.jar 
  * -archives test.tgz -files file.txt inputjar args
  * job submission with libjars, files and archives
- * </pre></blockquote></p>
+ * </pre>
+ * 
+ * </blockquote>
+ * </p>
  */
 public class GenericOptionsParser {
 
@@ -96,26 +120,26 @@ public class GenericOptionsParser {
 
   /**
    * Create an options parser with the given options to parse the args.
+   * 
    * @param opts the options
    * @param args the command line arguments
-   * @throws IOException 
+   * @throws IOException
    */
-  public GenericOptionsParser(Options opts, String[] args) 
-      throws IOException {
+  public GenericOptionsParser(Options opts, String[] args) throws IOException {
     this(new HamaConfiguration(), new Options(), args);
   }
 
   /**
    * Create an options parser to parse the args.
+   * 
    * @param args the command line arguments
-   * @throws IOException 
+   * @throws IOException
    */
-  public GenericOptionsParser(String[] args) 
-      throws IOException {
+  public GenericOptionsParser(String[] args) throws IOException {
     this(new HamaConfiguration(), new Options(), args);
   }
-  
-  /** 
+
+  /**
    * Create a <code>GenericOptionsParser<code> to parse only the generic Hama  
    * arguments. 
    * 
@@ -124,27 +148,27 @@ public class GenericOptionsParser {
    * 
    * @param conf the <code>HamaConfiguration</code> to modify.
    * @param args command-line arguments.
-   * @throws IOException 
+   * @throws IOException
    */
-  public GenericOptionsParser(HamaConfiguration conf, String[] args) 
+  public GenericOptionsParser(HamaConfiguration conf, String[] args)
       throws IOException {
-    this(conf, new Options(), args); 
+    this(conf, new Options(), args);
   }
 
-  /** 
-   * Create a <code>GenericOptionsParser</code> to parse given options as well 
-   * as generic Hama options. 
+  /**
+   * Create a <code>GenericOptionsParser</code> to parse given options as well
+   * as generic Hama options.
    * 
-   * The resulting <code>CommandLine</code> object can be obtained by 
+   * The resulting <code>CommandLine</code> object can be obtained by
    * {@link #getCommandLine()}.
    * 
-   * @param conf the HamaConfiguration to modify  
-   * @param options options built by the caller 
+   * @param conf the HamaConfiguration to modify
+   * @param options options built by the caller
    * @param args User-specified arguments
-   * @throws IOException 
+   * @throws IOException
    */
-  public GenericOptionsParser(HamaConfiguration conf,
-      Options options, String[] args) throws IOException {
+  public GenericOptionsParser(HamaConfiguration conf, Options options,
+      String[] args) throws IOException {
     parseGeneralOptions(options, conf, args);
     this.conf = conf;
   }
@@ -152,15 +176,16 @@ public class GenericOptionsParser {
   /**
    * Returns an array of Strings containing only application-specific arguments.
    * 
-   * @return array of <code>String</code>s containing the un-parsed arguments
-   * or <strong>empty array</strong> if commandLine was not defined.
+   * @return array of <code>String</code>s containing the un-parsed arguments or
+   *         <strong>empty array</strong> if commandLine was not defined.
    */
   public String[] getRemainingArgs() {
-    return (commandLine == null) ? new String[]{} : commandLine.getArgs();
+    return (commandLine == null) ? new String[] {} : commandLine.getArgs();
   }
 
   /**
    * Get the modified HamaConfiguration
+   * 
    * @return the HamaConfiguration that has the modified parameters.
    */
   public HamaConfiguration getConfiguration() {
@@ -168,15 +193,15 @@ public class GenericOptionsParser {
   }
 
   /**
-   * Returns the commons-cli <code>CommandLine</code> object 
-   * to process the parsed arguments. 
+   * Returns the commons-cli <code>CommandLine</code> object to process the
+   * parsed arguments.
    * 
-   * Note: If the object is created with 
-   * {@link #GenericOptionsParser(HamaConfiguration, String[])}, then returned 
+   * Note: If the object is created with
+   * {@link #GenericOptionsParser(HamaConfiguration, String[])}, then returned
    * object will only contain parsed generic options.
    * 
-   * @return <code>CommandLine</code> representing list of arguments 
-   *         parsed against Options descriptor.
+   * @return <code>CommandLine</code> representing list of arguments parsed
+   *         against Options descriptor.
    */
   public CommandLine getCommandLine() {
     return commandLine;
@@ -187,33 +212,33 @@ public class GenericOptionsParser {
    */
   @SuppressWarnings("static-access")
   private static Options buildGeneralOptions(Options opts) {
-	Option oconf = OptionBuilder.withArgName("configuration file")
-    .hasArg()
-    .withDescription("specify an application configuration file")
-    .create("conf");
-    Option property = OptionBuilder.withArgName("property=value")
-    .hasArg()
-    .withDescription("use value for given property")
-    .create('D');
-    Option libjars = OptionBuilder.withArgName("paths")
-    .hasArg()
-    .withDescription("comma separated jar files to include in the classpath.")
-    .create("libjars");
-    Option files = OptionBuilder.withArgName("paths")
-    .hasArg()
-    .withDescription("comma separated files to be copied to the " +
-           "bsp cluster")
-    .create("files");
-    Option archives = OptionBuilder.withArgName("paths")
-    .hasArg()
-    .withDescription("comma separated archives to be unarchived" +
-                     " on the compute machines.")
-    .create("archives");
+    Option oconf = OptionBuilder.withArgName("configuration file").hasArg()
+        .withDescription("specify an application configuration file")
+        .create("conf");
+    Option property = OptionBuilder.withArgName("property=value").hasArg()
+        .withDescription("use value for given property").create('D');
+    Option libjars = OptionBuilder
+        .withArgName("paths")
+        .hasArg()
+        .withDescription(
+            "comma separated jar files to include in the classpath.")
+        .create("libjars");
+    Option files = OptionBuilder
+        .withArgName("paths")
+        .hasArg()
+        .withDescription(
+            "comma separated files to be copied to the " + "bsp cluster")
+        .create("files");
+    Option archives = OptionBuilder
+        .withArgName("paths")
+        .hasArg()
+        .withDescription(
+            "comma separated archives to be unarchived"
+                + " on the compute machines.").create("archives");
     // file with security tokens
-    Option tokensFile = OptionBuilder.withArgName("tokensFile")
-    .hasArg()
-    .withDescription("name of the file with the tokens")
-    .create("tokenCacheFile");
+    Option tokensFile = OptionBuilder.withArgName("tokensFile").hasArg()
+        .withDescription("name of the file with the tokens")
+        .create("tokenCacheFile");
 
     opts.addOption(oconf);
     opts.addOption(property);
@@ -227,80 +252,80 @@ public class GenericOptionsParser {
 
   /**
    * Modify configuration according user-specified generic options
+   * 
    * @param conf Configuration to be modified
    * @param line User-specified generic options
    */
-  private void processGeneralOptions(HamaConfiguration conf,
-      CommandLine line) throws IOException {
+  private void processGeneralOptions(HamaConfiguration conf, CommandLine line)
+      throws IOException {
 
     if (line.hasOption("conf")) {
       String[] values = line.getOptionValues("conf");
-      for(String value : values) {
+      for (String value : values) {
         conf.addResource(new Path(value));
       }
     }
     if (line.hasOption("libjars")) {
-      conf.set("tmpjars", 
-               validateFiles(line.getOptionValue("libjars"), conf));
-      //setting libjars in client classpath
+      conf.set("tmpjars", validateFiles(line.getOptionValue("libjars"), conf));
+      // setting libjars in client classpath
       URL[] libjars = getLibJars(conf);
-      if(libjars!=null && libjars.length>0) {
+      if (libjars != null && libjars.length > 0) {
         conf.setClassLoader(new URLClassLoader(libjars, conf.getClassLoader()));
         Thread.currentThread().setContextClassLoader(
-            new URLClassLoader(libjars, 
-                Thread.currentThread().getContextClassLoader()));
+            new URLClassLoader(libjars, Thread.currentThread()
+                .getContextClassLoader()));
       }
     }
     if (line.hasOption("files")) {
-      conf.set("tmpfiles", 
-               validateFiles(line.getOptionValue("files"), conf));
+      conf.set("tmpfiles", validateFiles(line.getOptionValue("files"), conf));
     }
     if (line.hasOption("archives")) {
-      conf.set("tmparchives", 
-                validateFiles(line.getOptionValue("archives"), conf));
+      conf.set("tmparchives",
+          validateFiles(line.getOptionValue("archives"), conf));
     }
     if (line.hasOption('D')) {
       String[] property = line.getOptionValues('D');
-      for(String prop : property) {
+      for (String prop : property) {
         String[] keyval = prop.split("=", 2);
         if (keyval.length == 2) {
           conf.set(keyval[0], keyval[1]);
         }
       }
     }
-    
+
     conf.setBoolean("hama.used.genericoptionsparser", true);
-    
+
     // tokensFile
-    if(line.hasOption("tokenCacheFile")) {
+    if (line.hasOption("tokenCacheFile")) {
       String fileName = line.getOptionValue("tokenCacheFile");
       // check if the local file exists
-      try 
-      {
+      try {
         FileSystem localFs = FileSystem.getLocal(conf);
         Path p = new Path(fileName);
         if (!localFs.exists(p)) {
-          throw new FileNotFoundException("File "+fileName+" does not exist.");
+          throw new FileNotFoundException("File " + fileName
+              + " does not exist.");
         }
 
         LOG.debug("setting conf tokensFile: " + fileName);
-        conf.set("hama.job.credentials.json", 
-                 localFs.makeQualified(p).toString());
+        conf.set("hama.job.credentials.json", localFs.makeQualified(p)
+            .toString());
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
     }
   }
-  
+
   /**
    * If libjars are set in the conf, parse the libjars.
+   * 
    * @param conf
    * @return libjar urls
    * @throws IOException
    */
   public static URL[] getLibJars(HamaConfiguration conf) throws IOException {
     String jars = conf.get("tmpjars");
-    if(jars==null) {
+    if (jars == null) {
       return null;
     }
     String[] files = jars.split(",");
@@ -315,22 +340,22 @@ public class GenericOptionsParser {
   }
 
   /**
-   * takes input as a comma separated list of files
-   * and verifies if they exist. It defaults for file:///
-   * if the files specified do not have a scheme.
-   * it returns the paths uri converted defaulting to file:///.
-   * So an input of  /home/user/file1,/home/user/file2 would return
+   * takes input as a comma separated list of files and verifies if they exist.
+   * It defaults for file:/// if the files specified do not have a scheme. it
+   * returns the paths uri converted defaulting to file:///. So an input of
+   * /home/user/file1,/home/user/file2 would return
    * file:///home/user/file1,file:///home/user/file2
+   * 
    * @param files
    * @return
    */
-  private String validateFiles(String files, HamaConfiguration conf) 
-      throws IOException  {
-    if (files == null) 
+  private String validateFiles(String files, HamaConfiguration conf)
+      throws IOException {
+    if (files == null)
       return null;
     String[] fileArr = files.split(",");
     String[] finalArr = new String[fileArr.length];
-    for (int i =0; i < fileArr.length; i++) {
+    for (int i = 0; i < fileArr.length; i++) {
       String tmp = fileArr[i];
       String finalPath;
       URI pathURI;
@@ -342,14 +367,13 @@ public class GenericOptionsParser {
       Path path = new Path(pathURI);
       FileSystem localFs = FileSystem.getLocal(conf);
       if (pathURI.getScheme() == null) {
-        //default to the local file system
-        //check if the file exists or not first
+        // default to the local file system
+        // check if the file exists or not first
         if (!localFs.exists(path)) {
           throw new FileNotFoundException("File " + tmp + " does not exist.");
         }
         finalPath = path.makeQualified(localFs).toString();
-      }
-      else {
+      } else {
         // check if the file exists in this file system
         // we need to recreate this filesystem object to copy
         // these files to the file system jobtracker is running
@@ -364,16 +388,16 @@ public class GenericOptionsParser {
     }
     return StringUtils.arrayToString(finalArr);
   }
-  
 
   /**
    * Parse the user-specified options, get the generic options, and modify
    * configuration accordingly
+   * 
    * @param conf Configuration to be modified
    * @param args User-specified arguments
    * @return Command-specific arguments
    */
-  private String[] parseGeneralOptions(Options opts, HamaConfiguration conf, 
+  private String[] parseGeneralOptions(Options opts, HamaConfiguration conf,
       String[] args) throws IOException {
     opts = buildGeneralOptions(opts);
     CommandLineParser parser = new GnuParser();
@@ -381,8 +405,8 @@ public class GenericOptionsParser {
       commandLine = parser.parse(opts, args, true);
       processGeneralOptions(conf, commandLine);
       return commandLine.getArgs();
-    } catch(ParseException e) {
-      LOG.warn("options parsing failed: "+e.getMessage());
+    } catch (ParseException e) {
+      LOG.warn("options parsing failed: " + e.getMessage());
 
       HelpFormatter formatter = new HelpFormatter();
       formatter.printHelp("general options are: ", opts);
@@ -396,21 +420,21 @@ public class GenericOptionsParser {
    * @param out stream to print the usage message to.
    */
   public static void printGenericCommandUsage(PrintStream out) {
-    
+
     out.println("Generic options supported are");
     out.println("-conf <configuration file>     specify an application configuration file");
     out.println("-D <property=value>            use value for given property");
-    //out.println("-fs <local|namenode:port>      specify a namenode");
-    //out.println("-jt <local|jobtracker:port>    specify a job tracker");
-    out.println("-files <comma separated list of files>    " + 
-      "specify comma separated files to be copied to the bsp cluster");
-    out.println("-libjars <comma separated list of jars>    " +
-      "specify comma separated jar files to include in the classpath.");
-    out.println("-archives <comma separated list of archives>    " +
-                "specify comma separated archives to be unarchived" +
-                " on the compute machines.\n");
+    // out.println("-fs <local|namenode:port>      specify a namenode");
+    // out.println("-jt <local|jobtracker:port>    specify a job tracker");
+    out.println("-files <comma separated list of files>    "
+        + "specify comma separated files to be copied to the bsp cluster");
+    out.println("-libjars <comma separated list of jars>    "
+        + "specify comma separated jar files to include in the classpath.");
+    out.println("-archives <comma separated list of archives>    "
+        + "specify comma separated archives to be unarchived"
+        + " on the compute machines.\n");
     out.println("The general command line syntax is");
     out.println("bin/hama command [genericOptions] [commandOptions]\n");
   }
-  
+
 }
