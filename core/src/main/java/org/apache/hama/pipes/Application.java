@@ -57,9 +57,10 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
   private Socket clientSocket;
 
   private DownwardProtocol<K1, V1> downlink;
-  //private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
-  
-  static final boolean WINDOWS = System.getProperty("os.name").startsWith("Windows");
+  // private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
+
+  static final boolean WINDOWS = System.getProperty("os.name").startsWith(
+      "Windows");
 
   /**
    * Start the child process to handle the task for us.
@@ -68,46 +69,55 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
    * @throws InterruptedException
    * @throws IOException
    */
-  Application(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) 
-		  throws IOException, InterruptedException {
- 
-	//this.peer = peer;
+  Application(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) throws IOException,
+      InterruptedException {
+
+    // this.peer = peer;
 
     serverSocket = new ServerSocket(0);
     Map<String, String> env = new HashMap<String, String>();
     // add TMPDIR environment variable with the value of java.io.tmpdir
     env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
-    env.put("hama.pipes.command.port",Integer.toString(serverSocket.getLocalPort()));
-    
+    env.put("hama.pipes.command.port",
+        Integer.toString(serverSocket.getLocalPort()));
+
     /* Set Logging Environment from Configuration */
-    env.put("hama.pipes.logging",peer.getConfiguration().getBoolean("hama.pipes.logging", false)?"1":"0");
+    env.put("hama.pipes.logging",
+        peer.getConfiguration().getBoolean("hama.pipes.logging", false) ? "1"
+            : "0");
+    LOG.info("DEBUG hama.pipes.logging: "
+        + peer.getConfiguration().getBoolean("hama.pipes.logging", false));
 
     List<String> cmd = new ArrayList<String>();
-    String interpretor = peer.getConfiguration().get("hama.pipes.executable.interpretor");
+    String interpretor = peer.getConfiguration().get(
+        "hama.pipes.executable.interpretor");
     if (interpretor != null) {
       cmd.add(interpretor);
     }
 
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
-    try {  
-      LOG.info("DEBUG LocalCacheFilesCount: "+DistributedCache.getLocalCacheFiles(peer.getConfiguration()).length);      
-      for (Path u : DistributedCache.getLocalCacheFiles(peer.getConfiguration()))	
-    	  LOG.info("DEBUG LocalCacheFiles: "+u);
-      
-      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0].toString();
-      
-      LOG.info("DEBUG: executable: " +executable);
-      
+    try {
+      LOG.info("DEBUG LocalCacheFilesCount: "
+          + DistributedCache.getLocalCacheFiles(peer.getConfiguration()).length);
+      for (Path u : DistributedCache
+          .getLocalCacheFiles(peer.getConfiguration()))
+        LOG.info("DEBUG LocalCacheFiles: " + u);
+
+      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0]
+          .toString();
+
+      LOG.info("DEBUG: executable: " + executable);
+
     } catch (Exception e) {
       // if executable (GPU) missing?
-      //LOG.info("ERROR: "
-    	//    + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
-    	//  + " executable is missing!");
-    	
-      LOG.error("Executable: " +executable + " fs.default.name: " 
-  			+peer.getConfiguration().get("fs.default.name"));
-      
+      // LOG.info("ERROR: "
+      // + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
+      // + " executable is missing!");
+
+      LOG.error("Executable: " + executable + " fs.default.name: "
+          + peer.getConfiguration().get("fs.default.name"));
+
       throw new IOException("Executable is missing!");
     }
 
@@ -118,53 +128,59 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     }
     cmd.add(executable);
     // If runOnGPU add GPUDeviceId as parameter for GPUExecutable
-    
-    //if (runOnGPU)
-      // cmd.add(executable + " " + GPUDeviceId);
-    //  cmd.add(Integer.toString(GPUDeviceId));
-      
+
+    // if (runOnGPU)
+    // cmd.add(executable + " " + GPUDeviceId);
+    // cmd.add(Integer.toString(GPUDeviceId));
+
     // wrap the command in a stdout/stderr capture
     TaskAttemptID taskid = peer.getTaskId();
     // we are starting map/reduce task of the pipes job. this is not a cleanup
     // attempt.
     File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
     File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
+    // Get the desired maximum length of task's logs.
     long logLength = TaskLog.getTaskLogLength(peer.getConfiguration());
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
-    
+
     if (!stdout.getParentFile().exists()) {
-    	stdout.getParentFile().mkdirs();
-    	LOG.info("STDOUT: "+stdout.getParentFile().getAbsolutePath()+" created!");
+      stdout.getParentFile().mkdirs();
+      LOG.info("STDOUT: " + stdout.getParentFile().getAbsolutePath()
+          + " created!");
     }
-    LOG.info("STDOUT: "+stdout.getAbsolutePath());
-    
+    LOG.info("STDOUT: " + stdout.getAbsolutePath());
+
     if (!stderr.getParentFile().exists()) {
-    	stderr.getParentFile().mkdirs();
-    	LOG.info("STDERR: "+stderr.getParentFile().getAbsolutePath()+" created!");
+      stderr.getParentFile().mkdirs();
+      LOG.info("STDERR: " + stderr.getParentFile().getAbsolutePath()
+          + " created!");
     }
-    LOG.info("STDERR: "+stderr.getAbsolutePath());
+    LOG.info("STDERR: " + stderr.getAbsolutePath());
 
     /* MapReduce */
-    /* bash, -c, export JVM_PID=`echo $$`
-    exec '/tmp/hadoop-bafu/mapred/local/taskTracker/distcache/-7143918130315307681_1190230872_693782477/localhostbin/cpu-wordcount'  
-    < /dev/null  
-    1>> /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0/stdout 
-    2>> /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0/stderr
-    */
+    /*
+     * bash, -c, export JVM_PID=`echo $$` exec
+     * '/tmp/hadoop-bafu/mapred/local/taskTracker/distcache/-7143918130315307681_1190230872_693782477/localhostbin/cpu-wordcount'
+     * < /dev/null 1>>
+     * /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0
+     * /stdout 2>>
+     * /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0
+     * /stderr
+     */
     LOG.info("DEBUG: cmd: " + cmd);
 
-    process = runClient(cmd, env); //fork c++ binary
-    
-    LOG.info("DEBUG: waiting for Client at "+serverSocket.getLocalSocketAddress());
-    serverSocket.setSoTimeout(2000);
+    process = runClient(cmd, env); // fork c++ binary
+
+    LOG.info("DEBUG: waiting for Client at "
+        + serverSocket.getLocalSocketAddress());
+    // serverSocket.setSoTimeout(2000);
     clientSocket = serverSocket.accept();
-    
-    //handler = new OutputHandler<K2, V2>(output, recordReader);
-       
+
+    // handler = new OutputHandler<K2, V2>(output, recordReader);
+
     downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
     downlink.start();
   }
-
 
   /**
    * Get the downward protocol object that can send commands down to the
@@ -202,7 +218,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
       // IGNORE cleanup problems
     }
     try {
-    	downlink.waitForFinish();
+      downlink.waitForFinish();
     } catch (Throwable ignored) {
       process.destroy();
     }

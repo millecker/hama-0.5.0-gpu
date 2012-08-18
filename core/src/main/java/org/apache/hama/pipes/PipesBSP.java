@@ -34,38 +34,36 @@ import org.apache.hama.bsp.sync.SyncException;
  */
 public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
     extends BSP<K1, V1, K2, V2, BytesWritable> {
-	  
+
   private static final Log LOG = LogFactory.getLog(PipesBSP.class);
-  private Application<K1, V1, K2, V2, BytesWritable> application; 
-  
-  public void setup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) throws IOException,
-      SyncException, InterruptedException {
-	      
+  private Application<K1, V1, K2, V2, BytesWritable> application;
+
+  public void setup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+      throws IOException, SyncException, InterruptedException {
+
     this.application = new Application<K1, V1, K2, V2, BytesWritable>(peer);
-    
+
     application.getDownlink().runSetup(false, false);
-    
+
     try {
-		application.waitForFinish();
-	} catch (Throwable e) {
-		LOG.error(e);
-	}
+      application.waitForFinish();
+    } catch (Throwable e) {
+      LOG.error(e);
+    }
   }
 
-  
-  public void bsp(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) throws IOException,
-      SyncException, InterruptedException {
+  public void bsp(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+      throws IOException, SyncException, InterruptedException {
 
-	application.getDownlink().runBsp(false, false);
-	    
-	try {
-		application.waitForFinish();
-	} catch (Throwable e) {
-		LOG.error(e);
-	}
+    application.getDownlink().runBsp(false, false);
+
+    try {
+      application.waitForFinish();
+    } catch (Throwable e) {
+      LOG.error(e);
+    }
   }
 
-  
   /**
    * This method is called after the BSP method. It can be used for cleanup
    * purposes. Cleanup is guranteed to be called after the BSP runs, even in
@@ -74,17 +72,17 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
    * @param peer Your BSPPeer instance.
    * @throws IOException
    */
-  public void cleanup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) 
+  public void cleanup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
       throws IOException {
-	  
-	  application.getDownlink().runCleanup(false, false);
-	  
-	  try {
-			application.waitForFinish();
-	  } catch (Throwable e) {
-		  LOG.error(e);
-	  }  
-	  application.cleanup();
+
+    application.getDownlink().runCleanup(false, false);
+
+    try {
+      application.waitForFinish();
+    } catch (Throwable e) {
+      LOG.error(e);
+    }
+    application.cleanup();
   }
-  
+
 }

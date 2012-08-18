@@ -26,7 +26,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
-import org.apache.hadoop.security.Credentials;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hama.Constants;
 import org.apache.hama.HamaConfiguration;
@@ -47,7 +46,7 @@ public class BSPJob extends BSPJobContext {
   private JobState state = JobState.DEFINE;
   private BSPJobClient jobClient;
   private RunningJob info;
- 
+
   public BSPJob() throws IOException {
     this(new HamaConfiguration());
   }
@@ -239,18 +238,20 @@ public class BSPJob extends BSPJobContext {
   }
 
   public void set(String name, String value) {
-	  conf.set(name, value);
+    conf.set(name, value);
   }
-  
+
   /* MODIFICATIONS DONE */
   public void setBoolean(String name, boolean value) {
-	  conf.setBoolean(name, value);
+    conf.setBoolean(name, value);
   }
+
   public boolean getBoolean(String name, boolean defaultValue) {
-	  return conf.getBoolean(name, defaultValue);
+    return conf.getBoolean(name, defaultValue);
   }
+
   /* MODIFICATIONS DONE */
-  
+
   public void setNumBspTask(int tasks) {
     conf.setInt("bsp.peers.num", tasks);
   }

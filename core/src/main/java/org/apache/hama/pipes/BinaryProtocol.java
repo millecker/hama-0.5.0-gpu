@@ -56,8 +56,9 @@ import org.apache.hama.util.KeyValuePair;
  */
 class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
     implements DownwardProtocol<K1, V1> {
-  
-  private static final Log LOG = LogFactory.getLog(BinaryProtocol.class.getName());
+
+  private static final Log LOG = LogFactory.getLog(BinaryProtocol.class
+      .getName());
   public static final int CURRENT_PROTOCOL_VERSION = 0;
   /**
    * The buffer size for the command socket
@@ -68,25 +69,21 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
   private final DataOutputBuffer buffer = new DataOutputBuffer();
 
   private UplinkReaderThread uplink;
-  
+
   private boolean hasTask = false;
+
   /**
    * The integer codes to represent the different messages. These must match the
    * C++ codes or massive confusion will result.
    */
   private static enum MessageType {
-	  	START(0), SET_BSPJOB_CONF(1), SET_INPUT_TYPES(2), 
-	  	RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(5),
-    	READ_KEYVALUE(6), WRITE_KEYVALUE(7), 
-    	GET_MSG(8), GET_MSG_COUNT(9), 
-    	SEND_MSG(10), SYNC(11), 
-    	GET_ALL_PEERNAME(12), GET_PEERNAME(13),
-    	GET_PEER_INDEX(14), GET_PEER_COUNT(15), GET_SUPERSTEP_COUNT(16),
-    	REOPEN_INPUT(17), CLEAR(18),
-    	CLOSE(19), ABORT(20), 
-    	DONE(21), TASK_DONE(22), 
-    	REGISTER_COUNTER(23), INCREMENT_COUNTER(24);
-	  	
+    START(0), SET_BSPJOB_CONF(1), SET_INPUT_TYPES(2), RUN_SETUP(3), RUN_BSP(4), RUN_CLEANUP(
+        5), READ_KEYVALUE(6), WRITE_KEYVALUE(7), GET_MSG(8), GET_MSG_COUNT(9), SEND_MSG(
+        10), SYNC(11), GET_ALL_PEERNAME(12), GET_PEERNAME(13), GET_PEER_INDEX(
+        14), GET_PEER_COUNT(15), GET_SUPERSTEP_COUNT(16), REOPEN_INPUT(17), CLEAR(
+        18), CLOSE(19), ABORT(20), DONE(21), TASK_DONE(22), REGISTER_COUNTER(23), INCREMENT_COUNTER(
+        24);
+
     final int code;
 
     MessageType(int code) {
@@ -94,8 +91,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     }
   }
 
-  private class UplinkReaderThread
-      extends Thread {
+  private class UplinkReaderThread extends Thread {
 
     private DataInputStream inStream;
     private K2 key;
@@ -103,18 +99,20 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
 
     @SuppressWarnings("unchecked")
-	public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream) throws IOException {
-    
-      inStream = new DataInputStream(new BufferedInputStream(stream,BUFFER_SIZE));
-      
+    public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, BytesWritable> peer,
+        InputStream stream) throws IOException {
+
+      inStream = new DataInputStream(new BufferedInputStream(stream,
+          BUFFER_SIZE));
+
       this.peer = peer;
-      this.key = (K2) ReflectionUtils.newInstance(
-    		  (Class<? extends K2>)peer.getConfiguration().getClass("bsp.output.key.class", Object.class), 
-    		  peer.getConfiguration());
-      
-      this.value = (V2) ReflectionUtils.newInstance(
-       		  (Class<? extends V2>)peer.getConfiguration().getClass("bsp.output.value.class", Object.class),
-    		  peer.getConfiguration());
+      this.key = (K2) ReflectionUtils.newInstance((Class<? extends K2>) peer
+          .getConfiguration().getClass("bsp.output.key.class", Object.class),
+          peer.getConfiguration());
+
+      this.value = (V2) ReflectionUtils.newInstance((Class<? extends V2>) peer
+          .getConfiguration().getClass("bsp.output.value.class", Object.class),
+          peer.getConfiguration());
     }
 
     public void closeConnection() throws IOException {
@@ -127,158 +125,167 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException();
           }
-          
+
           int cmd = WritableUtils.readVInt(inStream);
           LOG.debug("Handling uplink command " + cmd);
-         
-          if (cmd == MessageType.WRITE_KEYVALUE.code) { //INCOMING
-        	readObject(key);
-          	readObject(value);
-          	LOG.info("Got MessageType.WRITE_KEYVALUE - Key: "+key+" Value: "+value);
-          	peer.write(key, value);
-          
-          } else if (cmd == MessageType.READ_KEYVALUE.code) { //OUTGOING
 
-        	boolean nullinput = peer.getConfiguration().get("bsp.input.format.class") == null 
-        			|| peer.getConfiguration().get("bsp.input.format.class").equals("org.apache.hama.bsp.NullInputFormat");
-        	  
-        	if (!nullinput) {
-        		KeyValuePair<K1,V1> pair = peer.readNext();
-          
-        		WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
-          		writeObject(pair.getKey());
-          		writeObject(pair.getValue());
-        	 
-          		flush();
-              	LOG.info("Responded MessageType.READ_KEYVALUE - Key: "
-              			+pair.getKey()+" Value: "+pair.getValue());
-              
-       		} else {
-       			/* TODO */
-       			/* Send empty Strings to show no KeyValue pair is available */
-       			WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
-          		Text.writeString(stream,"");
-          		Text.writeString(stream,"");
-        	 
-          		flush();
-              	LOG.info("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
-       			//WritableUtils.writeVInt(stream,MessageType.CLOSE.code);
-       			//flush();
-              	//LOG.info("Responded MessageType.READ_KEYVALUE with CLOSE!");
-          	} 
-          	
-          } else if (cmd == MessageType.INCREMENT_COUNTER.code) { //INCOMING
-        	//int id = WritableUtils.readVInt(inStream);
-        	String group = Text.readString(inStream);
-       		String name = Text.readString(inStream); 
-       		long amount = WritableUtils.readVLong(inStream);        		
-       		peer.incrementCounter(name, group, amount);
-          	
-          } else if (cmd == MessageType.REGISTER_COUNTER.code) { //INCOMING
-      		/* TODO */
-        	/* Is not used in HAMA -> Hadoop Pipes - maybe for performance, 
-        	 * skip transferring group and name each INCREMENT
-        	 */
-              	
-          } else if (cmd == MessageType.TASK_DONE.code) { //INCOMING
-         	LOG.info("Got MessageType.TASK_DONE");
-         	hasTask = false;
-         		
-          } else if (cmd == MessageType.DONE.code) { //INCOMING
-     		LOG.debug("Pipe child done");
-       		LOG.info("Pipe child done");
-       		return;
-   
-          } else if (cmd == MessageType.SEND_MSG.code) { //INCOMING
-          	String peerName = Text.readString(inStream);
-          	BytesWritable msg = new BytesWritable();
-          	readObject(msg);
-            LOG.info("Got MessageType.SEND_MSG to peerName: "+peerName);
-          	peer.send(peerName, msg); 
-          	
-          } else if (cmd == MessageType.GET_MSG_COUNT.code) { //OUTGOING
-        	WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
-        	WritableUtils.writeVInt(stream, peer.getNumCurrentMessages()); 
-          	flush();
-          	LOG.info("Responded MessageType.GET_MSG_COUNT - Count: "+peer.getNumCurrentMessages());
-          	
-          } else if (cmd == MessageType.GET_MSG.code) { //OUTGOING
-        	LOG.info("Got MessageType.GET_MSG");
-        	WritableUtils.writeVInt(stream, MessageType.GET_MSG.code);
-        	BytesWritable msg = peer.getCurrentMessage();
-          	if (msg!=null)
-       			writeObject(msg);
-        	 
-          	flush();
-          	LOG.info("Responded MessageType.GET_MSG - Message(BytesWritable) ");//+msg);
+          if (cmd == MessageType.WRITE_KEYVALUE.code) { // INCOMING
+            readObject(key);
+            readObject(value);
+            LOG.info("Got MessageType.WRITE_KEYVALUE - Key: " + key
+                + " Value: " + value);
+            peer.write(key, value);
 
-          } else if (cmd == MessageType.SYNC.code) { //INCOMING
-        	LOG.info("Got MessageType.SYNC");
-        	peer.sync(); // this call blocks
-          	 
-          } else if (cmd == MessageType.GET_ALL_PEERNAME.code) { //OUTGOING
-        	LOG.info("Got MessageType.GET_ALL_PEERNAME");
-        	WritableUtils.writeVInt(stream, MessageType.GET_ALL_PEERNAME.code);
-          	WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
-          	for (String s : peer.getAllPeerNames())
-          		Text.writeString(stream,s);
-        	
-          	flush();
-          	LOG.info("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
-          			+peer.getAllPeerNames().length);
-          	
-          } else if (cmd == MessageType.GET_PEERNAME.code) { //OUTGOING
-          	int id = WritableUtils.readVInt(inStream);
-          	LOG.info("Got MessageType.GET_PEERNAME id: "+id);
-          	
-          	WritableUtils.writeVInt(stream, MessageType.GET_PEERNAME.code);
-          	if (id==-1) { // -1 indicates get own PeerName
-          		Text.writeString(stream, peer.getPeerName());
-          		LOG.info("Responded MessageType.GET_PEERNAME - Get Own PeerName: "+
-      					peer.getPeerName());
-          		
-          	} else if ((id<-1) || (id>=peer.getNumPeers())) {
-          		//if no PeerName for this index is found write emptyString
-          		Text.writeString(stream, "");
-          		LOG.info("Responded MessageType.GET_PEERNAME - Empty PeerName!");
+          } else if (cmd == MessageType.READ_KEYVALUE.code) { // OUTGOING
 
-          	} else {
-          		Text.writeString(stream, peer.getPeerName(id));
-          		LOG.info("Responded MessageType.GET_PEERNAME - PeerName: "+
-              					peer.getPeerName(id));
-          	}
-          	flush();
-          	          	
-          } else if (cmd == MessageType.GET_PEER_INDEX.code) { //OUTGOING
-          	WritableUtils.writeVInt(stream, MessageType.GET_PEER_INDEX.code);
-          	WritableUtils.writeVInt(stream, peer.getPeerIndex()); 
-            flush();
-            LOG.info("Responded MessageType.GET_PEER_INDEX - PeerIndex: "+peer.getPeerIndex());	
-          	
-          } else if (cmd == MessageType.GET_PEER_COUNT.code) { //OUTGOING
-            WritableUtils.writeVInt(stream, MessageType.GET_PEER_COUNT.code);
-            WritableUtils.writeVInt(stream, peer.getNumPeers()); 
-            flush();
-            LOG.info("Responded MessageType.GET_PEER_COUNT - NumPeers: "+peer.getNumPeers());	
-            	
-          } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { //OUTGOING
-              WritableUtils.writeVInt(stream, MessageType.GET_SUPERSTEP_COUNT.code);
-              WritableUtils.writeVLong(stream, peer.getSuperstepCount()); 
+            boolean nullinput = peer.getConfiguration().get(
+                "bsp.input.format.class") == null
+                || peer.getConfiguration().get("bsp.input.format.class")
+                    .equals("org.apache.hama.bsp.NullInputFormat");
+
+            if (!nullinput) {
+              KeyValuePair<K1, V1> pair = peer.readNext();
+
+              WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
+              writeObject(pair.getKey());
+              writeObject(pair.getValue());
+
               flush();
-              LOG.info("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "+peer.getSuperstepCount());	
-              	
-          } else if (cmd == MessageType.REOPEN_INPUT.code) { //INCOMING
-        	LOG.info("Got MessageType.REOPEN_INPUT");
-        	peer.reopenInput();
-          
-          } else if (cmd == MessageType.CLEAR.code) { //INCOMING
-          	LOG.info("Got MessageType.CLEAR");
-          	peer.clear();
-            
+              LOG.info("Responded MessageType.READ_KEYVALUE - Key: "
+                  + pair.getKey() + " Value: " + pair.getValue());
+
+            } else {
+              /* TODO */
+              /* Send empty Strings to show no KeyValue pair is available */
+              WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
+              Text.writeString(stream, "");
+              Text.writeString(stream, "");
+
+              flush();
+              LOG.info("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
+              // WritableUtils.writeVInt(stream,MessageType.CLOSE.code);
+              // flush();
+              // LOG.info("Responded MessageType.READ_KEYVALUE with CLOSE!");
+            }
+
+          } else if (cmd == MessageType.INCREMENT_COUNTER.code) { // INCOMING
+            // int id = WritableUtils.readVInt(inStream);
+            String group = Text.readString(inStream);
+            String name = Text.readString(inStream);
+            long amount = WritableUtils.readVLong(inStream);
+            peer.incrementCounter(name, group, amount);
+
+          } else if (cmd == MessageType.REGISTER_COUNTER.code) { // INCOMING
+            /* TODO */
+            /*
+             * Is not used in HAMA -> Hadoop Pipes - maybe for performance, skip
+             * transferring group and name each INCREMENT
+             */
+
+          } else if (cmd == MessageType.TASK_DONE.code) { // INCOMING
+            LOG.info("Got MessageType.TASK_DONE");
+            hasTask = false;
+
+          } else if (cmd == MessageType.DONE.code) { // INCOMING
+            LOG.debug("Pipe child done");
+            LOG.info("Pipe child done");
+            return;
+
+          } else if (cmd == MessageType.SEND_MSG.code) { // INCOMING
+            String peerName = Text.readString(inStream);
+            BytesWritable msg = new BytesWritable();
+            readObject(msg);
+            LOG.info("Got MessageType.SEND_MSG to peerName: " + peerName);
+            peer.send(peerName, msg);
+
+          } else if (cmd == MessageType.GET_MSG_COUNT.code) { // OUTGOING
+            WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
+            WritableUtils.writeVInt(stream, peer.getNumCurrentMessages());
+            flush();
+            LOG.info("Responded MessageType.GET_MSG_COUNT - Count: "
+                + peer.getNumCurrentMessages());
+
+          } else if (cmd == MessageType.GET_MSG.code) { // OUTGOING
+            LOG.info("Got MessageType.GET_MSG");
+            WritableUtils.writeVInt(stream, MessageType.GET_MSG.code);
+            BytesWritable msg = peer.getCurrentMessage();
+            if (msg != null)
+              writeObject(msg);
+
+            flush();
+            LOG.info("Responded MessageType.GET_MSG - Message(BytesWritable) ");// +msg);
+
+          } else if (cmd == MessageType.SYNC.code) { // INCOMING
+            LOG.info("Got MessageType.SYNC");
+            peer.sync(); // this call blocks
+
+          } else if (cmd == MessageType.GET_ALL_PEERNAME.code) { // OUTGOING
+            LOG.info("Got MessageType.GET_ALL_PEERNAME");
+            WritableUtils.writeVInt(stream, MessageType.GET_ALL_PEERNAME.code);
+            WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
+            for (String s : peer.getAllPeerNames())
+              Text.writeString(stream, s);
+
+            flush();
+            LOG.info("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
+                + peer.getAllPeerNames().length);
+
+          } else if (cmd == MessageType.GET_PEERNAME.code) { // OUTGOING
+            int id = WritableUtils.readVInt(inStream);
+            LOG.info("Got MessageType.GET_PEERNAME id: " + id);
+
+            WritableUtils.writeVInt(stream, MessageType.GET_PEERNAME.code);
+            if (id == -1) { // -1 indicates get own PeerName
+              Text.writeString(stream, peer.getPeerName());
+              LOG.info("Responded MessageType.GET_PEERNAME - Get Own PeerName: "
+                  + peer.getPeerName());
+
+            } else if ((id < -1) || (id >= peer.getNumPeers())) {
+              // if no PeerName for this index is found write emptyString
+              Text.writeString(stream, "");
+              LOG.info("Responded MessageType.GET_PEERNAME - Empty PeerName!");
+
+            } else {
+              Text.writeString(stream, peer.getPeerName(id));
+              LOG.info("Responded MessageType.GET_PEERNAME - PeerName: "
+                  + peer.getPeerName(id));
+            }
+            flush();
+
+          } else if (cmd == MessageType.GET_PEER_INDEX.code) { // OUTGOING
+            WritableUtils.writeVInt(stream, MessageType.GET_PEER_INDEX.code);
+            WritableUtils.writeVInt(stream, peer.getPeerIndex());
+            flush();
+            LOG.info("Responded MessageType.GET_PEER_INDEX - PeerIndex: "
+                + peer.getPeerIndex());
+
+          } else if (cmd == MessageType.GET_PEER_COUNT.code) { // OUTGOING
+            WritableUtils.writeVInt(stream, MessageType.GET_PEER_COUNT.code);
+            WritableUtils.writeVInt(stream, peer.getNumPeers());
+            flush();
+            LOG.info("Responded MessageType.GET_PEER_COUNT - NumPeers: "
+                + peer.getNumPeers());
+
+          } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { // OUTGOING
+            WritableUtils.writeVInt(stream,
+                MessageType.GET_SUPERSTEP_COUNT.code);
+            WritableUtils.writeVLong(stream, peer.getSuperstepCount());
+            flush();
+            LOG.info("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "
+                + peer.getSuperstepCount());
+
+          } else if (cmd == MessageType.REOPEN_INPUT.code) { // INCOMING
+            LOG.info("Got MessageType.REOPEN_INPUT");
+            peer.reopenInput();
+
+          } else if (cmd == MessageType.CLEAR.code) { // INCOMING
+            LOG.info("Got MessageType.CLEAR");
+            peer.clear();
+
           } else {
-          	throw new IOException("Bad command code: " + cmd);
-          } 
-          
+            throw new IOException("Bad command code: " + cmd);
+          }
+
         } catch (InterruptedException e) {
           return;
         } catch (Throwable e) {
@@ -303,10 +310,11 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
         inStream.readFully(buffer);
         ((Text) obj).set(buffer);
       } else if (obj instanceof NullWritable) {
-    	  throw new IOException("Cannot read data into NullWritable! Check OutputClasses!");
+        throw new IOException(
+            "Cannot read data into NullWritable! Check OutputClasses!");
       } else {
-    	  /* TODO */
-    	  /* IntWritable, DoubleWritable */
+        /* TODO */
+        /* IntWritable, DoubleWritable */
         obj.readFields(inStream);
       }
     }
@@ -357,36 +365,35 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    * @param jobConfig The job's configuration
    * @throws IOException
    */
-  public BinaryProtocol(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, Socket sock) throws IOException {
+  public BinaryProtocol(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, Socket sock)
+      throws IOException {
     OutputStream raw = sock.getOutputStream();
-    
+
     // If we are debugging, save a copy of the downlink commands to a file
     if (Submitter.getKeepCommandFile(peer.getConfiguration())) {
       raw = new TeeOutputStream("downlink.data", raw);
     }
     stream = new DataOutputStream(new BufferedOutputStream(raw, BUFFER_SIZE));
-    uplink = new UplinkReaderThread(peer,sock.getInputStream());
-    
+    uplink = new UplinkReaderThread(peer, sock.getInputStream());
+
     uplink.setName("pipe-uplink-handler");
     uplink.start();
   }
-  
+
   @Override
   public boolean waitForFinish() throws IOException, InterruptedException {
-	    	LOG.info("waitForFinish... "+hasTask);
-	    	while (hasTask) {
-	    		try {
-	    			Thread.sleep(100);
-	    			LOG.info("waitForFinish... "+hasTask);
-	    		} catch (Exception e) {
-	    			e.printStackTrace();
-	    		}
-	    	 }
-	   
-			
-	return hasTask;
+    // LOG.info("waitForFinish... "+hasTask);
+    while (hasTask) {
+      try {
+        Thread.sleep(100);
+        // LOG.info("waitForFinish... "+hasTask);
+      } catch (Exception e) {
+        LOG.error(e);
+      }
+    }
+    return hasTask;
   }
-	
+
   /**
    * Close the connection and shutdown the handler thread.
    * 
@@ -395,19 +402,19 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
    */
   @Override
   public void close() throws IOException, InterruptedException {
-	//runCleanup(pipedInput,pipedOutput);  
-	LOG.debug("closing connection");
-	endOfInput();
-	
+    // runCleanup(pipedInput,pipedOutput);
+    LOG.debug("closing connection");
+    endOfInput();
+
     uplink.interrupt();
-	uplink.join();
-	
-	uplink.closeConnection();
-	stream.close();
+    uplink.join();
+
+    uplink.closeConnection();
+    stream.close();
   }
-  
+
   public void start() throws IOException {
-    LOG.debug("starting downlink");    
+    LOG.debug("starting downlink");
     WritableUtils.writeVInt(stream, MessageType.START.code);
     WritableUtils.writeVInt(stream, CURRENT_PROTOCOL_VERSION);
     flush();
@@ -438,21 +445,20 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     LOG.info("Sent MessageType.SET_INPUT_TYPES");
   }
 
-  
   public void runSetup(boolean pipedInput, boolean pipedOutput)
-	      throws IOException {
-		
-	WritableUtils.writeVInt(stream, MessageType.RUN_SETUP.code);
-	WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
-	WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0); 
-	flush();
-	hasTask = true;
+      throws IOException {
+
+    WritableUtils.writeVInt(stream, MessageType.RUN_SETUP.code);
+    WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
+    WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
+    flush();
+    hasTask = true;
     LOG.info("Sent MessageType.RUN_SETUP");
   }
-  
+
   public void runBsp(boolean pipedInput, boolean pipedOutput)
       throws IOException {
-  
+
     WritableUtils.writeVInt(stream, MessageType.RUN_BSP.code);
     WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
@@ -460,18 +466,17 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     hasTask = true;
     LOG.info("Sent MessageType.RUN_BSP");
   }
-  
+
   public void runCleanup(boolean pipedInput, boolean pipedOutput)
-	      throws IOException {
-		
-	WritableUtils.writeVInt(stream, MessageType.RUN_CLEANUP.code);
-	WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
-	WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
-	flush();
+      throws IOException {
+
+    WritableUtils.writeVInt(stream, MessageType.RUN_CLEANUP.code);
+    WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
+    WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
+    flush();
     hasTask = true;
     LOG.info("Sent MessageType.RUN_CLEANUP");
   }
-
 
   public void endOfInput() throws IOException {
     WritableUtils.writeVInt(stream, MessageType.CLOSE.code);

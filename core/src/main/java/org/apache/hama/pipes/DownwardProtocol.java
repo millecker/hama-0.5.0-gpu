@@ -20,7 +20,6 @@ package org.apache.hama.pipes;
 
 import java.io.IOException;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.Writable;
 
 /**
@@ -35,47 +34,44 @@ import org.apache.hadoop.io.Writable;
  */
 interface DownwardProtocol<K extends Writable, V extends Writable> {
 
-	/**
-	 * Start communication
-	 * 
-	 * @throws IOException
-	 */
-	void start() throws IOException;
+  /**
+   * Start communication
+   * 
+   * @throws IOException
+   */
+  void start() throws IOException;
 
-	/**
-	 * Set the input types for Maps.
-	 * 
-	 * @param keyType
-	 *            the name of the key's type
-	 * @param valueType
-	 *            the name of the value's type
-	 * @throws IOException
-	 */
-	void setInputTypes(String keyType, String valueType) throws IOException;
+  /**
+   * Set the input types for Maps.
+   * 
+   * @param keyType the name of the key's type
+   * @param valueType the name of the value's type
+   * @throws IOException
+   */
+  void setInputTypes(String keyType, String valueType) throws IOException;
 
-	void runBsp(boolean pipedInput, boolean pipedOutput) throws IOException;
+  void runBsp(boolean pipedInput, boolean pipedOutput) throws IOException;
 
-	void runCleanup(boolean pipedInput, boolean pipedOutput) throws IOException;
+  void runCleanup(boolean pipedInput, boolean pipedOutput) throws IOException;
 
-	void runSetup(boolean pipedInput, boolean pipedOutput) throws IOException;
+  void runSetup(boolean pipedInput, boolean pipedOutput) throws IOException;
 
-	/**
-	 * The task should stop as soon as possible, because something has gone
-	 * wrong.
-	 * 
-	 * @throws IOException
-	 */
-	void abort() throws IOException;
+  /**
+   * The task should stop as soon as possible, because something has gone wrong.
+   * 
+   * @throws IOException
+   */
+  void abort() throws IOException;
 
-	/**
-	 * Flush the data through any buffers.
-	 */
-	void flush() throws IOException;
+  /**
+   * Flush the data through any buffers.
+   */
+  void flush() throws IOException;
 
-	/**
-	 * Close the connection.
-	 */
-	void close() throws IOException, InterruptedException;
+  /**
+   * Close the connection.
+   */
+  void close() throws IOException, InterruptedException;
 
-	boolean waitForFinish() throws IOException, InterruptedException;
+  boolean waitForFinish() throws IOException, InterruptedException;
 }
