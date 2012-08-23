@@ -143,8 +143,10 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
                 || peer.getConfiguration().get("bsp.input.format.class")
                     .equals("org.apache.hama.bsp.NullInputFormat");
 
-            if (!nullinput) {
-              KeyValuePair<K1, V1> pair = peer.readNext();
+            KeyValuePair<K1, V1> pair = peer.readNext();
+            
+            if ((!nullinput) && (pair != null)) {
+              // IF InputFormat != NULL && pair !=NULL
 
               WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
               writeObject(pair.getKey());

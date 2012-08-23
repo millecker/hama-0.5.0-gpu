@@ -105,8 +105,8 @@ namespace HamaPipes {
     virtual void runCleanup(bool pipedInput, bool pipedOutput) = 0;
     virtual void runSetup(bool pipedInput, bool pipedOutput) = 0;
       
-    virtual void setNewResult(int value) = 0;
-    virtual void setNewResult(long value) = 0;  
+    virtual void setNewResult(int32_t value) = 0;
+    virtual void setNewResult(int64_t value) = 0;  
     virtual void setNewResult(const string&  value) = 0;
     virtual void setNewResult(vector<string> value) = 0;
       
@@ -1039,8 +1039,12 @@ namespace HamaPipes {
    */
   bool runTask(const Factory& factory) {
     try {
+      HADOOP_ASSERT(getenv("hama.pipes.logging")!=NULL,"No environment found!");
+        
       logging = (toInt(getenv("hama.pipes.logging"))==0)?false:true;  
       if(logging)fprintf(stderr,"HamaPipes::runTask - logging is: %s\n", (logging)?"true":"false"); 
+        
+      fflush(stderr);
         
       BSPContextImpl* context = new BSPContextImpl(factory);
       Protocol* connection;

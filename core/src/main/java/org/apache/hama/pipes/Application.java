@@ -23,6 +23,7 @@ import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -173,13 +174,18 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
 
     LOG.info("DEBUG: waiting for Client at "
         + serverSocket.getLocalSocketAddress());
-    // serverSocket.setSoTimeout(2000);
-    clientSocket = serverSocket.accept();
 
-    // handler = new OutputHandler<K2, V2>(output, recordReader);
+    try {
+      serverSocket.setSoTimeout(2000);
+      clientSocket = serverSocket.accept();
 
-    downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
-    downlink.start();
+      downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
+      downlink.start();
+
+    } catch (SocketException e) {
+      throw new SocketException(
+          "Timout: Client pipes application was not connecting!");
+    }
   }
 
   /**
