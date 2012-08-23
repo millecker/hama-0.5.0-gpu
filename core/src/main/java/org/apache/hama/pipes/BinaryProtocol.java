@@ -130,9 +130,9 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           LOG.debug("Handling uplink command " + cmd);
 
           if (cmd == MessageType.WRITE_KEYVALUE.code) { // INCOMING
-            readObject(key);
-            readObject(value);
-            LOG.info("Got MessageType.WRITE_KEYVALUE - Key: " + key
+            readObject(key); // string or binary only
+            readObject(value); // string or binary only
+            LOG.debug("Got MessageType.WRITE_KEYVALUE - Key: " + key
                 + " Value: " + value);
             peer.write(key, value);
 
@@ -143,18 +143,24 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
                 || peer.getConfiguration().get("bsp.input.format.class")
                     .equals("org.apache.hama.bsp.NullInputFormat");
 
-            KeyValuePair<K1, V1> pair = peer.readNext();
-            
-            if ((!nullinput) && (pair != null)) {
-              // IF InputFormat != NULL && pair !=NULL
+            if (!nullinput) {
+
+              KeyValuePair<K1, V1> pair = peer.readNext();
 
               WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
-              writeObject(pair.getKey());
-              writeObject(pair.getValue());
+              if (pair != null) {
+                writeObject(pair.getKey());
+                writeObject(pair.getValue());
 
+                LOG.debug("Responded MessageType.READ_KEYVALUE - Key: "
+                    + pair.getKey() + " Value: " + pair.getValue());
+
+              } else {
+                Text.writeString(stream, "");
+                Text.writeString(stream, "");
+                LOG.debug("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
+              }
               flush();
-              LOG.info("Responded MessageType.READ_KEYVALUE - Key: "
-                  + pair.getKey() + " Value: " + pair.getValue());
 
             } else {
               /* TODO */
@@ -164,10 +170,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
               Text.writeString(stream, "");
 
               flush();
-              LOG.info("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
-              // WritableUtils.writeVInt(stream,MessageType.CLOSE.code);
-              // flush();
-              // LOG.info("Responded MessageType.READ_KEYVALUE with CLOSE!");
+              LOG.debug("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
             }
 
           } else if (cmd == MessageType.INCREMENT_COUNTER.code) { // INCOMING
@@ -185,71 +188,70 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
              */
 
           } else if (cmd == MessageType.TASK_DONE.code) { // INCOMING
-            LOG.info("Got MessageType.TASK_DONE");
+            LOG.debug("Got MessageType.TASK_DONE");
             hasTask = false;
 
           } else if (cmd == MessageType.DONE.code) { // INCOMING
             LOG.debug("Pipe child done");
-            LOG.info("Pipe child done");
             return;
 
           } else if (cmd == MessageType.SEND_MSG.code) { // INCOMING
             String peerName = Text.readString(inStream);
             BytesWritable msg = new BytesWritable();
             readObject(msg);
-            LOG.info("Got MessageType.SEND_MSG to peerName: " + peerName);
+            LOG.debug("Got MessageType.SEND_MSG to peerName: " + peerName);
             peer.send(peerName, msg);
 
           } else if (cmd == MessageType.GET_MSG_COUNT.code) { // OUTGOING
             WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
             WritableUtils.writeVInt(stream, peer.getNumCurrentMessages());
             flush();
-            LOG.info("Responded MessageType.GET_MSG_COUNT - Count: "
+            LOG.debug("Responded MessageType.GET_MSG_COUNT - Count: "
                 + peer.getNumCurrentMessages());
 
           } else if (cmd == MessageType.GET_MSG.code) { // OUTGOING
-            LOG.info("Got MessageType.GET_MSG");
+            LOG.debug("Got MessageType.GET_MSG");
             WritableUtils.writeVInt(stream, MessageType.GET_MSG.code);
             BytesWritable msg = peer.getCurrentMessage();
             if (msg != null)
               writeObject(msg);
 
             flush();
-            LOG.info("Responded MessageType.GET_MSG - Message(BytesWritable) ");// +msg);
+            LOG.debug("Responded MessageType.GET_MSG - Message(BytesWritable) ");// +msg);
 
           } else if (cmd == MessageType.SYNC.code) { // INCOMING
-            LOG.info("Got MessageType.SYNC");
+            LOG.debug("Got MessageType.SYNC");
             peer.sync(); // this call blocks
 
           } else if (cmd == MessageType.GET_ALL_PEERNAME.code) { // OUTGOING
-            LOG.info("Got MessageType.GET_ALL_PEERNAME");
+            LOG.debug("Got MessageType.GET_ALL_PEERNAME");
             WritableUtils.writeVInt(stream, MessageType.GET_ALL_PEERNAME.code);
             WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
             for (String s : peer.getAllPeerNames())
               Text.writeString(stream, s);
 
             flush();
-            LOG.info("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
+            LOG.debug("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
                 + peer.getAllPeerNames().length);
 
           } else if (cmd == MessageType.GET_PEERNAME.code) { // OUTGOING
             int id = WritableUtils.readVInt(inStream);
-            LOG.info("Got MessageType.GET_PEERNAME id: " + id);
+            LOG.debug("Got MessageType.GET_PEERNAME id: " + id);
 
             WritableUtils.writeVInt(stream, MessageType.GET_PEERNAME.code);
             if (id == -1) { // -1 indicates get own PeerName
               Text.writeString(stream, peer.getPeerName());
-              LOG.info("Responded MessageType.GET_PEERNAME - Get Own PeerName: "
+              LOG.debug("Responded MessageType.GET_PEERNAME - Get Own PeerName: "
                   + peer.getPeerName());
 
             } else if ((id < -1) || (id >= peer.getNumPeers())) {
               // if no PeerName for this index is found write emptyString
               Text.writeString(stream, "");
-              LOG.info("Responded MessageType.GET_PEERNAME - Empty PeerName!");
+              LOG.debug("Responded MessageType.GET_PEERNAME - Empty PeerName!");
 
             } else {
               Text.writeString(stream, peer.getPeerName(id));
-              LOG.info("Responded MessageType.GET_PEERNAME - PeerName: "
+              LOG.debug("Responded MessageType.GET_PEERNAME - PeerName: "
                   + peer.getPeerName(id));
             }
             flush();
@@ -258,14 +260,14 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
             WritableUtils.writeVInt(stream, MessageType.GET_PEER_INDEX.code);
             WritableUtils.writeVInt(stream, peer.getPeerIndex());
             flush();
-            LOG.info("Responded MessageType.GET_PEER_INDEX - PeerIndex: "
+            LOG.debug("Responded MessageType.GET_PEER_INDEX - PeerIndex: "
                 + peer.getPeerIndex());
 
           } else if (cmd == MessageType.GET_PEER_COUNT.code) { // OUTGOING
             WritableUtils.writeVInt(stream, MessageType.GET_PEER_COUNT.code);
             WritableUtils.writeVInt(stream, peer.getNumPeers());
             flush();
-            LOG.info("Responded MessageType.GET_PEER_COUNT - NumPeers: "
+            LOG.debug("Responded MessageType.GET_PEER_COUNT - NumPeers: "
                 + peer.getNumPeers());
 
           } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { // OUTGOING
@@ -273,15 +275,15 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
                 MessageType.GET_SUPERSTEP_COUNT.code);
             WritableUtils.writeVLong(stream, peer.getSuperstepCount());
             flush();
-            LOG.info("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "
+            LOG.debug("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "
                 + peer.getSuperstepCount());
 
           } else if (cmd == MessageType.REOPEN_INPUT.code) { // INCOMING
-            LOG.info("Got MessageType.REOPEN_INPUT");
+            LOG.debug("Got MessageType.REOPEN_INPUT");
             peer.reopenInput();
 
           } else if (cmd == MessageType.CLEAR.code) { // INCOMING
-            LOG.info("Got MessageType.CLEAR");
+            LOG.debug("Got MessageType.CLEAR");
             peer.clear();
 
           } else {
@@ -317,7 +319,9 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       } else {
         /* TODO */
         /* IntWritable, DoubleWritable */
-        obj.readFields(inStream);
+        throw new IOException(
+            "Hama Pipes does only support Text as Key/Value output!");
+        // obj.readFields(inStream);
       }
     }
   }
@@ -384,11 +388,11 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
 
   @Override
   public boolean waitForFinish() throws IOException, InterruptedException {
-    // LOG.info("waitForFinish... "+hasTask);
+    // LOG.debug("waitForFinish... "+hasTask);
     while (hasTask) {
       try {
         Thread.sleep(100);
-        // LOG.info("waitForFinish... "+hasTask);
+        // LOG.debug("waitForFinish... "+hasTask);
       } catch (Exception e) {
         LOG.error(e);
       }
@@ -420,7 +424,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     WritableUtils.writeVInt(stream, MessageType.START.code);
     WritableUtils.writeVInt(stream, CURRENT_PROTOCOL_VERSION);
     flush();
-    LOG.info("Sent MessageType.START");
+    LOG.debug("Sent MessageType.START");
   }
 
   public void setBSPJob(Configuration conf) throws IOException {
@@ -435,7 +439,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       Text.writeString(stream, entry);
     }
     flush();
-    LOG.info("Sent MessageType.SET_BSPJOB_CONF");
+    LOG.debug("Sent MessageType.SET_BSPJOB_CONF");
   }
 
   public void setInputTypes(String keyType, String valueType)
@@ -444,7 +448,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     Text.writeString(stream, keyType);
     Text.writeString(stream, valueType);
     flush();
-    LOG.info("Sent MessageType.SET_INPUT_TYPES");
+    LOG.debug("Sent MessageType.SET_INPUT_TYPES");
   }
 
   public void runSetup(boolean pipedInput, boolean pipedOutput)
@@ -455,7 +459,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
     hasTask = true;
-    LOG.info("Sent MessageType.RUN_SETUP");
+    LOG.debug("Sent MessageType.RUN_SETUP");
   }
 
   public void runBsp(boolean pipedInput, boolean pipedOutput)
@@ -466,7 +470,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
     hasTask = true;
-    LOG.info("Sent MessageType.RUN_BSP");
+    LOG.debug("Sent MessageType.RUN_BSP");
   }
 
   public void runCleanup(boolean pipedInput, boolean pipedOutput)
@@ -477,21 +481,20 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
     hasTask = true;
-    LOG.info("Sent MessageType.RUN_CLEANUP");
+    LOG.debug("Sent MessageType.RUN_CLEANUP");
   }
 
   public void endOfInput() throws IOException {
     WritableUtils.writeVInt(stream, MessageType.CLOSE.code);
     flush();
     LOG.debug("Sent close command");
-    LOG.info("Sent MessageType.CLOSE");
+    LOG.debug("Sent MessageType.CLOSE");
   }
 
   public void abort() throws IOException {
     WritableUtils.writeVInt(stream, MessageType.ABORT.code);
     flush();
-    LOG.debug("Sent abort command");
-    LOG.info("Sent MessageType.ABORT");
+    LOG.debug("Sent MessageType.ABORT");
   }
 
   public void flush() throws IOException {

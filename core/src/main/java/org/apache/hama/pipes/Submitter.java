@@ -299,13 +299,13 @@ public class Submitter implements Tool {
 
     LOG.info("DEBUG: isJavaRecordReader: "
         + getIsJavaRecordReader(job.getConf()));
-    LOG.info("DEBUG: BspClass: " + job.getBspClass());
+    LOG.info("DEBUG: BspClass: " + job.getBspClass().getName());
     // conf.setInputFormat(NLineInputFormat.class);
     LOG.info("DEBUG: InputFormat: " + job.getInputFormat());
-    LOG.info("DEBUG: InputKeyClass: " + job.getInputKeyClass());
-    LOG.info("DEBUG: InputValueClass: " + job.getInputValueClass());
-    LOG.info("DEBUG: OutputKeyClass: " + job.getOutputKeyClass());
-    LOG.info("DEBUG: OutputValueClass: " + job.getOutputValueClass());
+    LOG.info("DEBUG: InputKeyClass: " + job.getInputKeyClass().getName());
+    LOG.info("DEBUG: InputValueClass: " + job.getInputValueClass().getName());
+    LOG.info("DEBUG: OutputKeyClass: " + job.getOutputKeyClass().getName());
+    LOG.info("DEBUG: OutputValueClass: " + job.getOutputValueClass().getName());
 
     // Use PipesNonJavaInputFormat if necessary to handle progress reporting
     // from C++ RecordReaders ...
@@ -467,13 +467,13 @@ public class Submitter implements Tool {
     try {
 
       // check generic arguments -conf
-      LOG.info("DEBUG: execute GenericOptionsParser");
+      LOG.debug("DEBUG: execute GenericOptionsParser");
       GenericOptionsParser genericParser = new GenericOptionsParser(getConf(),
           args);
       // get other arguments
       CommandLine results = parser.parse(cli.options,
           genericParser.getRemainingArgs());
-      LOG.info("DEBUG: NormalArguments: " + Arrays.toString(results.getArgs()));
+      LOG.debug("DEBUG: NormalArguments: " + Arrays.toString(results.getArgs()));
 
       BSPJob job = new BSPJob(getConf());
 

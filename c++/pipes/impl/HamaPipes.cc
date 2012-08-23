@@ -856,7 +856,7 @@ namespace HamaPipes {
         if (writer != NULL) {
             writer->emit(key, value);
         } else {
-            uplink->sendCMD(WRITE_KEYVALUE,key, value);
+            uplink->sendCMD(WRITE_KEYVALUE, key, value);
         }
     }
     
@@ -1043,8 +1043,6 @@ namespace HamaPipes {
         
       logging = (toInt(getenv("hama.pipes.logging"))==0)?false:true;  
       if(logging)fprintf(stderr,"HamaPipes::runTask - logging is: %s\n", (logging)?"true":"false"); 
-        
-      fflush(stderr);
         
       BSPContextImpl* context = new BSPContextImpl(factory);
       Protocol* connection;

@@ -86,7 +86,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     env.put("hama.pipes.logging",
         peer.getConfiguration().getBoolean("hama.pipes.logging", false) ? "1"
             : "0");
-    LOG.info("DEBUG hama.pipes.logging: "
+    LOG.debug("DEBUG hama.pipes.logging: "
         + peer.getConfiguration().getBoolean("hama.pipes.logging", false));
 
     List<String> cmd = new ArrayList<String>();
@@ -99,16 +99,16 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      LOG.info("DEBUG LocalCacheFilesCount: "
+      LOG.debug("DEBUG LocalCacheFilesCount: "
           + DistributedCache.getLocalCacheFiles(peer.getConfiguration()).length);
       for (Path u : DistributedCache
           .getLocalCacheFiles(peer.getConfiguration()))
-        LOG.info("DEBUG LocalCacheFiles: " + u);
+        LOG.debug("DEBUG LocalCacheFiles: " + u);
 
       executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0]
           .toString();
 
-      LOG.info("DEBUG: executable: " + executable);
+      LOG.debug("DEBUG: executable: " + executable);
 
     } catch (Exception e) {
       // if executable (GPU) missing?
@@ -146,33 +146,23 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
 
     if (!stdout.getParentFile().exists()) {
       stdout.getParentFile().mkdirs();
-      LOG.info("STDOUT: " + stdout.getParentFile().getAbsolutePath()
+      LOG.debug("STDOUT: " + stdout.getParentFile().getAbsolutePath()
           + " created!");
     }
-    LOG.info("STDOUT: " + stdout.getAbsolutePath());
+    LOG.debug("STDOUT: " + stdout.getAbsolutePath());
 
     if (!stderr.getParentFile().exists()) {
       stderr.getParentFile().mkdirs();
-      LOG.info("STDERR: " + stderr.getParentFile().getAbsolutePath()
+      LOG.debug("STDERR: " + stderr.getParentFile().getAbsolutePath()
           + " created!");
     }
-    LOG.info("STDERR: " + stderr.getAbsolutePath());
+    LOG.debug("STDERR: " + stderr.getAbsolutePath());
 
-    /* MapReduce */
-    /*
-     * bash, -c, export JVM_PID=`echo $$` exec
-     * '/tmp/hadoop-bafu/mapred/local/taskTracker/distcache/-7143918130315307681_1190230872_693782477/localhostbin/cpu-wordcount'
-     * < /dev/null 1>>
-     * /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0
-     * /stdout 2>>
-     * /logs/userlogs/job_201208151013_0001/attempt_201208151013_0001_m_000000_0
-     * /stderr
-     */
-    LOG.info("DEBUG: cmd: " + cmd);
+    LOG.debug("DEBUG: cmd: " + cmd);
 
     process = runClient(cmd, env); // fork c++ binary
 
-    LOG.info("DEBUG: waiting for Client at "
+    LOG.debug("DEBUG: waiting for Client at "
         + serverSocket.getLocalSocketAddress());
 
     try {
