@@ -307,6 +307,11 @@ public class Submitter implements Tool {
     LOG.info("DEBUG: OutputKeyClass: " + job.getOutputKeyClass().getName());
     LOG.info("DEBUG: OutputValueClass: " + job.getOutputValueClass().getName());
 
+    if ((!job.getOutputKeyClass().getName().equals(textClassname))
+        || (!job.getOutputValueClass().getName().equals(textClassname)))
+      throw new IllegalArgumentException(
+          "Hama Pipes does only support Text as Key/Value output!");
+
     // Use PipesNonJavaInputFormat if necessary to handle progress reporting
     // from C++ RecordReaders ...
     /*

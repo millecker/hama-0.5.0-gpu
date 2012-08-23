@@ -175,7 +175,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     } catch (SocketException e) {
       throw new SocketException(
           "Timout: Client pipes application was not connecting!");
-    }
+    } 
   }
 
   /**
