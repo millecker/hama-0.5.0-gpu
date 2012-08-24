@@ -29,11 +29,10 @@ import org.apache.hadoop.io.Text;
  * exists, the key will be the entire line and value will be empty.
  */
 public class KeyValueTextInputFormat extends FileInputFormat<Text, Text> {
-	
+
   @Override
   public RecordReader<Text, Text> getRecordReader(InputSplit genericSplit,
-		  										  BSPJob job)
-    throws IOException {
+      BSPJob job) throws IOException {
     return new KeyValueLineRecordReader(job.getConf(), (FileSplit) genericSplit);
   }
 

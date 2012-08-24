@@ -25,12 +25,34 @@
 #include <string.h>
 #include <strings.h>
 #include <sys/time.h>
+#include <iomanip> //needed for std::setprecision
+#include <sstream> //needed for std::stringstream
 
 using std::string;
 using std::vector;
 
 namespace HadoopUtils {
 
+  // Added by Apache Hama Pipes
+  string toString(double x) {
+    std::stringstream ss;
+    ss << std::setprecision(16) << x;
+    return ss.str();
+  }
+
+  // Added by Apache Hama Pipes
+  double toDouble(const string& val) {
+    const char* begin = val.c_str();
+    char* end;
+    double result = strtod(begin, &end);
+    size_t s = end - begin;
+    if(s < val.size()) {
+      throw Error("Problem converting "+val+" to double. (result:"
+                  +toString(result)+")");
+    }
+    return result;
+  }
+    
   string toString(int32_t x) {
     char str[100];
     sprintf(str, "%d", x);

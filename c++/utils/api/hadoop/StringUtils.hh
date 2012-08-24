@@ -25,6 +25,19 @@
 namespace HadoopUtils {
 
   /**
+   * Added by Apache Hama Pipes
+   * Convert an double to a string.
+   */
+  std::string toString(double d);
+    
+  /**
+   * Added by Apache Hama Pipes
+   * Convert the string to a double.
+   * @throws Error if the string is not a valid double
+   */
+  double toDouble(const std::string& val);
+
+  /**
    * Convert an integer to a string.
    */
   std::string toString(int32_t x);

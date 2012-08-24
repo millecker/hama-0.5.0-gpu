@@ -325,6 +325,7 @@ public class Submitter implements Tool {
         + job.getConf().get("bsp.master.address"));
     LOG.info("DEBUG: bsp.local.tasks.maximum: "
         + job.getConf().get("bsp.local.tasks.maximum"));
+    LOG.info("DEBUG: NumBspTask: " + job.getNumBspTask());
     LOG.info("DEBUG: fs.default.name: " + job.getConf().get("fs.default.name"));
 
     // String exec = getExecutable(conf);
@@ -334,7 +335,7 @@ public class Submitter implements Tool {
     LOG.info("DEBUG: GPUbin = '" + gpubin + "'");
     // if (exec == null) {
     if (cpubin == null && gpubin == null) {
-      throw new IllegalArgumentException("No application program defined.");
+      throw new IllegalArgumentException("No CPU or GPU application defined.");
     }
     // add default debug script only when executable is expressed as
     // <path>#<executable>

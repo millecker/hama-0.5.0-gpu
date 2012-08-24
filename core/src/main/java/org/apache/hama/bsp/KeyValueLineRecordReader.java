@@ -25,13 +25,13 @@ import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 
 /**
- * This class treats a line in the input as a key/value pair separated by a 
- * separator character. The separator can be specified in config file 
- * under the attribute name key.value.separator.in.input.line. The default
- * separator is the tab character ('\t').
+ * This class treats a line in the input as a key/value pair separated by a
+ * separator character. The separator can be specified in config file under the
+ * attribute name key.value.separator.in.input.line. The default separator is
+ * the tab character ('\t').
  */
 public class KeyValueLineRecordReader implements RecordReader<Text, Text> {
-  
+
   private final LineRecordReader lineRecordReader;
 
   private byte separator = (byte) '\t';
@@ -40,19 +40,21 @@ public class KeyValueLineRecordReader implements RecordReader<Text, Text> {
 
   private Text innerValue;
 
-  public Class getKeyClass() { return Text.class; }
-  
+  public Class getKeyClass() {
+    return Text.class;
+  }
+
   public Text createKey() {
     return new Text();
   }
-  
+
   public Text createValue() {
     return new Text();
   }
 
   public KeyValueLineRecordReader(Configuration job, FileSplit split)
-    throws IOException {
-    
+      throws IOException {
+
     lineRecordReader = new LineRecordReader(job, split);
     dummyKey = lineRecordReader.createKey();
     innerValue = lineRecordReader.createValue();
@@ -70,8 +72,7 @@ public class KeyValueLineRecordReader implements RecordReader<Text, Text> {
   }
 
   /** Read key/value pair in a line. */
-  public synchronized boolean next(Text key, Text value)
-    throws IOException {
+  public synchronized boolean next(Text key, Text value) throws IOException {
     Text tKey = key;
     Text tValue = value;
     byte[] line = null;
@@ -100,16 +101,16 @@ public class KeyValueLineRecordReader implements RecordReader<Text, Text> {
     }
     return true;
   }
-  
+
   public float getProgress() {
     return lineRecordReader.getProgress();
   }
-  
+
   public synchronized long getPos() throws IOException {
     return lineRecordReader.getPos();
   }
 
-  public synchronized void close() throws IOException { 
+  public synchronized void close() throws IOException {
     lineRecordReader.close();
   }
 }
