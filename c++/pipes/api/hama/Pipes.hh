@@ -119,8 +119,37 @@ public:
   
   virtual ~TaskContext() {}
 };
+    
+    
+/**
+ * SequenceFile Connector
+ */
+class SequenceFileConnector {
+public:
+  /**
+   * Open SequenceFile with opion "r" or "w"
+   * @return the corresponding fileID
+   */
+  virtual int sequenceFileOpen(const string& path, const string& option) = 0;
+    
+  /**
+   * Read next key/value pair from the SequenceFile with fileID
+   */
+  virtual bool sequenceFileReadNext(int fileID, string& key, string& value) = 0;
 
-class BSPContext: public TaskContext {
+  /**
+   * Append the next key/value pair to the SequenceFile with fileID
+   */
+  virtual bool sequenceFileAppend(int fileID, const string& key, const string& value) = 0;
+    
+  /**
+   * Close SequenceFile
+   */
+  virtual bool sequenceFileClose(int fileID) = 0;
+};    
+
+
+class BSPContext: public TaskContext, public SequenceFileConnector {
 public:
 
   /**

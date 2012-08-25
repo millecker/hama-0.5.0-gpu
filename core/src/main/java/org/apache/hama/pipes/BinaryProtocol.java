@@ -29,15 +29,19 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.SequenceFile;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
@@ -82,7 +86,8 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
         10), SYNC(11), GET_ALL_PEERNAME(12), GET_PEERNAME(13), GET_PEER_INDEX(
         14), GET_PEER_COUNT(15), GET_SUPERSTEP_COUNT(16), REOPEN_INPUT(17), CLEAR(
         18), CLOSE(19), ABORT(20), DONE(21), TASK_DONE(22), REGISTER_COUNTER(23), INCREMENT_COUNTER(
-        24);
+        24), SEQFILE_OPEN(25), SEQFILE_READNEXT(26), SEQFILE_APPEND(27), SEQFILE_CLOSE(
+        28);
 
     final int code;
 
@@ -97,6 +102,8 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
     private K2 key;
     private V2 value;
     private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
+    private Map<Integer, SequenceFile.Reader> sequenceFileReaders;
+    private Map<Integer, SequenceFile.Writer> sequenceFileWriters;
 
     @SuppressWarnings("unchecked")
     public UplinkReaderThread(BSPPeer<K1, V1, K2, V2, BytesWritable> peer,
@@ -113,6 +120,9 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
       this.value = (V2) ReflectionUtils.newInstance((Class<? extends V2>) peer
           .getConfiguration().getClass("bsp.output.value.class", Object.class),
           peer.getConfiguration());
+
+      this.sequenceFileReaders = new HashMap<Integer, SequenceFile.Reader>();
+      this.sequenceFileWriters = new HashMap<Integer, SequenceFile.Writer>();
     }
 
     public void closeConnection() throws IOException {
@@ -168,7 +178,6 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
               WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
               Text.writeString(stream, "");
               Text.writeString(stream, "");
-
               flush();
               LOG.debug("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
             }
@@ -285,6 +294,103 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           } else if (cmd == MessageType.CLEAR.code) { // INCOMING
             LOG.debug("Got MessageType.CLEAR");
             peer.clear();
+
+            /* SequenceFileConnector Implementation */
+          } else if (cmd == MessageType.SEQFILE_OPEN.code) { // OUTGOING
+            String path = Text.readString(inStream);
+            // option - read = "r" or write = "w"
+            String option = Text.readString(inStream);
+
+            int fileID = -1;
+
+            Configuration conf = peer.getConfiguration();
+            FileSystem fs = FileSystem.get(conf);
+            if (path.equals("r")) {
+              SequenceFile.Reader reader;
+              try {
+                reader = new SequenceFile.Reader(fs, new Path(path), conf);
+                fileID = reader.hashCode();
+                sequenceFileReaders.put(fileID, reader);
+              } catch (IOException e) {
+                fileID = -1;
+              }
+
+            } else if (path.equals("w")) {
+              SequenceFile.Writer writer;
+              try {
+                writer = new SequenceFile.Writer(fs, conf, new Path(path),
+                    Text.class, Text.class);
+                fileID = writer.hashCode();
+                sequenceFileWriters.put(fileID, writer);
+              } catch (IOException e) {
+                fileID = -1;
+              }
+            }
+
+            WritableUtils.writeVInt(stream, MessageType.SEQFILE_OPEN.code);
+            WritableUtils.writeVInt(stream, fileID);
+            flush();
+            LOG.debug("Responded MessageType.SEQFILE_OPEN - FileID: " + fileID);
+
+          } else if (cmd == MessageType.SEQFILE_READNEXT.code) { // OUTGOING
+            int fileID = WritableUtils.readVInt(inStream);
+
+            Writable key = null;
+            Writable val = null;
+
+            if (sequenceFileReaders.containsKey(fileID))
+              sequenceFileReaders.get(fileID).next(key, val);
+            
+            // RESPOND
+            WritableUtils.writeVInt(stream, MessageType.SEQFILE_READNEXT.code);
+            if (key != null && val != null) {
+              Text.writeString(stream, key.toString());
+              Text.writeString(stream, val.toString());
+              LOG.debug("Responded MessageType.SEQFILE_READNEXT - key: " + key
+                  + " val: " + val);
+            } else {
+              Text.writeString(stream, "");
+              Text.writeString(stream, "");
+              LOG.debug("Responded MessageType.SEQFILE_READNEXT - EMPTY KeyValue Pair");
+            }
+            flush();
+
+          } else if (cmd == MessageType.SEQFILE_APPEND.code) { // INCOMING
+            int fileID = WritableUtils.readVInt(inStream);
+            String keyStr = Text.readString(inStream);
+            String valueStr = Text.readString(inStream);
+
+            boolean result = false;
+            if (sequenceFileWriters.containsKey(fileID)) {
+              sequenceFileWriters.get(fileID).append(new Text(keyStr),
+                  new Text(valueStr));
+              result = true;
+            }
+
+            // RESPOND
+            WritableUtils.writeVInt(stream, MessageType.SEQFILE_APPEND.code);
+            WritableUtils.writeVInt(stream, result ? 1 : 0);
+            flush();
+            LOG.debug("Responded MessageType.SEQFILE_APPEND - Result: "
+                + result);
+
+          } else if (cmd == MessageType.SEQFILE_CLOSE.code) { // OUTGOING
+            int fileID = WritableUtils.readVInt(inStream);
+            boolean result = false;
+
+            if (sequenceFileReaders.containsKey(fileID)) {
+              sequenceFileReaders.get(fileID).close();
+              result = true;
+            } else if (sequenceFileWriters.containsKey(fileID)) {
+              sequenceFileWriters.get(fileID).close();
+              result = true;
+            }
+
+            // RESPOND
+            WritableUtils.writeVInt(stream, MessageType.SEQFILE_CLOSE.code);
+            WritableUtils.writeVInt(stream, result ? 1 : 0);
+            flush();
+            LOG.debug("Responded MessageType.SEQFILE_CLOSE - Result: " + result);
 
           } else {
             throw new IOException("Bad command code: " + cmd);

@@ -124,6 +124,8 @@ namespace HamaPipes {
   public:
     virtual void sendCMD(int32_t cmd) = 0;
     virtual void sendCMD(int32_t cmd, int32_t value) = 0;
+    virtual void sendCMD(int32_t cmd, int32_t value1, const string& value2, const string& value3) = 0;
+    virtual void sendCMD(int32_t cmd, const string& value) = 0;  
     virtual void sendCMD(int32_t cmd, const string& value1, const string& value2) = 0;
       
     //virtual void registerCounter(int id, const string& group, const string& name) = 0;
@@ -156,7 +158,9 @@ namespace HamaPipes {
       REOPEN_INPUT, CLEAR,
       CLOSE, ABORT,
       DONE, TASK_DONE, 
-      REGISTER_COUNTER, INCREMENT_COUNTER
+      REGISTER_COUNTER, INCREMENT_COUNTER,
+      SEQFILE_OPEN, SEQFILE_READNEXT, 
+      SEQFILE_APPEND, SEQFILE_CLOSE
   };
     
   /* Only needed for debugging output */
@@ -171,7 +175,9 @@ namespace HamaPipes {
       stringify( REOPEN_INPUT ), stringify( CLEAR ),
       stringify( CLOSE ), stringify( ABORT ),
       stringify( DONE ), stringify( TASK_DONE ), 
-      stringify( REGISTER_COUNTER ), stringify( INCREMENT_COUNTER )
+      stringify( REGISTER_COUNTER ), stringify( INCREMENT_COUNTER ),
+      stringify( SEQFILE_OPEN ), stringify( SEQFILE_READNEXT ),
+      stringify( SEQFILE_APPEND ), stringify( SEQFILE_CLOSE )
     };
 
   /********************************************/
@@ -199,6 +205,22 @@ namespace HamaPipes {
       serializeInt(value, *stream);
       stream->flush();
       if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s and Value: %d\n",messageTypeNames[cmd],value);
+    }
+    
+    virtual void sendCMD(int32_t cmd, int32_t value1, const string& value2, const string& value3) {
+      serializeInt(cmd, *stream);
+      serializeInt(value1, *stream);
+      serializeString(value2, *stream);
+      serializeString(value3, *stream);
+      stream->flush();
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s with Value1: %d, Value2: %s and Value3: %s\n",messageTypeNames[cmd],value1,value2.c_str(),value3.c_str());
+    }
+      
+    virtual void sendCMD(int32_t cmd, const string& value) {
+      serializeInt(cmd, *stream);
+      serializeString(value, *stream);
+      stream->flush();
+      if(logging)fprintf(stderr,"HamaPipes::BinaryUpwardProtocol sent CMD: %s with Value: %s\n",messageTypeNames[cmd],value.c_str());
     }
       
     virtual void sendCMD(int32_t cmd, const string& value1, const string& value2) {
@@ -410,19 +432,45 @@ namespace HamaPipes {
         handler->setNewResult(superstepCount);
         break;
       }
-            
-      case CLOSE:
+      case SEQFILE_OPEN: {
+        int32_t fileID = deserializeInt(*downStream);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_OPEN fileID: %d\n",fileID); 
+        handler->setNewResult(fileID);
+        break;
+      }    
+      case SEQFILE_READNEXT: {
+        deserializeString(key, *downStream);
+        deserializeString(value, *downStream);
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_READNEXT key: %s value: %s\n", key.c_str(),value.c_str()); 
+        handler->setKeyValue(key, value);
+        break;
+      }
+      case SEQFILE_APPEND: {
+          int32_t result = deserializeInt(*downStream);
+          if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_APPEND result: %d\n",result);
+          handler->setNewResult(result);
+          break;
+      }   
+      case SEQFILE_CLOSE: {
+          int32_t result = deserializeInt(*downStream);
+          if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_CLOSE result: %d\n",result);
+          handler->setNewResult(result);
+          break;
+      }
+              
+      case CLOSE: {
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got CLOSE\n"); 
         handler->close();
         break;
-      case ABORT:
+      }
+      case ABORT: {
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got ABORT\n"); 
         handler->abort();
         break;
+      }        
       default:
         HADOOP_ASSERT(false, "Unknown binary command " + toString(cmd));
         fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - Unknown binary command: %d\n",cmd); 
-              
       }
     }
       
@@ -644,7 +692,7 @@ namespace HamaPipes {
     }
 
     /********************************************/
-    /************** TaskContext IMPL *************/  
+    /************** TaskContext IMPL ************/  
     /********************************************/
     
     /**
@@ -875,7 +923,7 @@ namespace HamaPipes {
       _value = currentValue;
       
       if (logging && _key.empty() && _value.empty())  
-        if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::readNext - Empty KeyValuePair\n");
+        fprintf(stderr,"HamaPipes::BSPContextImpl::readNext - Empty KeyValuePair\n");
         
       return (!_key.empty() && !_value.empty());
     }
@@ -889,6 +937,77 @@ namespace HamaPipes {
     }
       
       
+    /********************************************/
+    /*******  SequenceFileConnector IMPL  *******/  
+    /********************************************/     
+      
+    /**
+     * Open SequenceFile with opion "r" or "w"
+     * @return the corresponding fileID
+     */
+    virtual int sequenceFileOpen(const string& path, const string& option) {
+      if ( (option.compare("r")==0) || (option.compare("w")==0))  {
+          uplink->sendCMD(SEQFILE_OPEN,path,option);
+      
+          while (!isNewResultInt)
+            protocol->nextEvent();
+        
+          isNewResultInt = false;
+          return resultInt;
+      } else {
+          if (logging)  
+            fprintf(stderr,"HamaPipes::BSPContextImpl::sequenceFileOpen wrong option: %s!\n",option.c_str());
+          return -1; //Error wrong option
+      }
+    }
+
+    /**
+     * Read next key/value pair from the SequenceFile with fileID
+     */
+    virtual bool sequenceFileReadNext(int fileID, string& _key, string& _value) {
+        
+      uplink->sendCMD(SEQFILE_READNEXT,fileID);
+        
+      while (!isNewKeyValuePair)
+        protocol->nextEvent();
+        
+      isNewKeyValuePair = false;
+        
+      _key = currentKey;
+      _value = currentValue;
+        
+      if (logging && _key.empty() && _value.empty())  
+        fprintf(stderr,"HamaPipes::BSPContextImpl::sequenceFileReadNext - Empty KeyValuePair\n");
+        
+      return (!_key.empty() && !_value.empty());
+    }
+
+    /**
+     * Append the next key/value pair to the SequenceFile with fileID
+     */
+    virtual bool sequenceFileAppend(int fileID, const string& key, const string& value) {
+      uplink->sendCMD(SEQFILE_APPEND,fileID,key,value);
+                
+      while (!isNewResultInt)
+        protocol->nextEvent();
+        
+      isNewResultInt = false;
+      return (resultInt==1);
+    }
+
+    /**
+     * Close SequenceFile
+     */
+    virtual bool sequenceFileClose(int fileID) {
+      uplink->sendCMD(SEQFILE_CLOSE,fileID);
+        
+      while (!isNewResultInt)
+        protocol->nextEvent();
+        
+      isNewResultInt = false;
+      return (resultInt==1);
+    }
+
     /********************************************/
     /*************** Other STUFF  ***************/  
     /********************************************/
