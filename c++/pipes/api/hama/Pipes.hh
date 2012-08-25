@@ -127,7 +127,7 @@ public:
 class SequenceFileConnector {
 public:
   /**
-   * Open SequenceFile with opion "r" or "w"
+   * Open SequenceFile with option "r" or "w"
    * @return the corresponding fileID
    */
   virtual int sequenceFileOpen(const string& path, const string& option) = 0;
