@@ -294,9 +294,6 @@ public class Submitter implements Tool {
     setIfUnset(job.getConf(), "bsp.output.key.class", textClassname);
     setIfUnset(job.getConf(), "bsp.output.value.class", textClassname);
 
-    // TODO Set default Job name
-    setIfUnset(job.getConf(), "bsp.job.name", "Hama Pipes Job");
-
     LOG.info("DEBUG: isJavaRecordReader: "
         + getIsJavaRecordReader(job.getConf()));
     LOG.info("DEBUG: BspClass: " + job.getBspClass().getName());
@@ -348,6 +345,9 @@ public class Submitter implements Tool {
      * setIfUnset(job,"mapred.map.task.debug.script",defScript);
      * setIfUnset(job,"mapred.reduce.task.debug.script",defScript); }
      */
+
+    // TODO Set default Job name
+    setIfUnset(job.getConf(), "bsp.job.name", "Hama Pipes Job - " + cpubin);
 
     URI[] fileCache = DistributedCache.getCacheFiles(job.getConf());
     int count = ((cpubin != null) && (gpubin != null)) ? 2 : 1;
@@ -410,12 +410,12 @@ public class Submitter implements Tool {
     void printUsage() {
       // The CLI package should do this for us, but I can't figure out how
       // to make it print something reasonable.
-      System.out.println("bin/hama pipes");
+      System.out.println("hama pipes");
       System.out.println("  [-input <path>] // Input directory");
       System.out.println("  [-output <path>] // Output directory");
       System.out.println("  [-jar <jar file> // jar filename");
       System.out.println("  [-inputformat <class>] // InputFormat class");
-      System.out.println("  [-bsp <class>] // Java Map class");
+      System.out.println("  [-bsp <class>] // Java BSP class");
       System.out.println("  [-partitioner <class>] // Java Partitioner");
       System.out.println("  [-combiner <class>] // Java Combiner class");
       System.out.println("  [-output <class>] // Java RecordWriter");
