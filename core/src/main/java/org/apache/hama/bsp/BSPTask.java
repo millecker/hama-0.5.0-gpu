@@ -33,6 +33,7 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hama.Constants;
 import org.apache.hama.ipc.BSPPeerProtocol;
+import org.apache.hama.pipes.PipesApplicable;
 
 /**
  * Base class for tasks.
@@ -158,6 +159,11 @@ public final class BSPTask extends Task {
     BSP<KEYIN, VALUEIN, KEYOUT, VALUEOUT, M> bsp = (BSP<KEYIN, VALUEIN, KEYOUT, VALUEOUT, M>) ReflectionUtils
         .newInstance(job.getConf().getClass("bsp.work.class", BSP.class),
             job.getConf());
+
+    /* MODIFICATIONS DONE */
+    if (job.getConf().get("bsp.work.class", "").equals("PipesBSP"))
+      ((PipesApplicable) bsp).setApplication(job.getPipesApplication());
+    /* MODIFICATIONS DONE */
 
     // The policy is to throw the first exception and log the remaining.
     Exception firstException = null;

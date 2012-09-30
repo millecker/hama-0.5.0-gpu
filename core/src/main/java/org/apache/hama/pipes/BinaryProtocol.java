@@ -122,6 +122,7 @@ class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writab
           peer.getConfiguration());
 
       this.sequenceFileReaders = new HashMap<Integer, SequenceFile.Reader>();
+      /* TODO */
       this.sequenceFileWriters = new HashMap<Integer, SequenceFile.Writer>();
     }
 

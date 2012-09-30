@@ -50,10 +50,11 @@ import org.apache.hama.bsp.TaskLog;
  * @author Martin Illecker
  * 
  */
-class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable> {
+public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable> {
 
-  private static final Log LOG = LogFactory.getLog(Application.class.getName());
-  private ServerSocket serverSocket;
+  private static final Log LOG = LogFactory.getLog(PipesApplication.class
+      .getName());
+  private ServerSocket serverSocket = null;
   private Process process;
   private Socket clientSocket;
 
@@ -63,6 +64,9 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
   static final boolean WINDOWS = System.getProperty("os.name").startsWith(
       "Windows");
 
+  public PipesApplication() {
+  }
+
   /**
    * Start the child process to handle the task for us.
    * 
@@ -70,20 +74,19 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
    * @throws InterruptedException
    * @throws IOException
    */
-  Application(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) throws IOException,
-      InterruptedException {
+  public void start(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+      throws IOException, InterruptedException {
 
-    // this.peer = peer;
+    this.serverSocket = new ServerSocket(0);
 
-    serverSocket = new ServerSocket(0);
-    Map<String, String> env = new HashMap<String, String>();
+    Map<String, String> environment = new HashMap<String, String>();
     // add TMPDIR environment variable with the value of java.io.tmpdir
-    env.put("TMPDIR", System.getProperty("java.io.tmpdir"));
-    env.put("hama.pipes.command.port",
+    environment.put("TMPDIR", System.getProperty("java.io.tmpdir"));
+    environment.put("hama.pipes.command.port",
         Integer.toString(serverSocket.getLocalPort()));
 
     /* Set Logging Environment from Configuration */
-    env.put("hama.pipes.logging",
+    environment.put("hama.pipes.logging",
         peer.getConfiguration().getBoolean("hama.pipes.logging", false) ? "1"
             : "0");
     LOG.debug("DEBUG hama.pipes.logging: "
@@ -127,9 +130,9 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
       // In case of DefaultTaskController, set permissions here.
       FileUtil.chmod(executable, "u+x");
     }
+
     cmd.add(executable);
     // If runOnGPU add GPUDeviceId as parameter for GPUExecutable
-
     // if (runOnGPU)
     // cmd.add(executable + " " + GPUDeviceId);
     // cmd.add(Integer.toString(GPUDeviceId));
@@ -160,7 +163,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
 
     LOG.debug("DEBUG: cmd: " + cmd);
 
-    process = runClient(cmd, env); // fork c++ binary
+    process = runClient(cmd, environment); // fork c++ binary
 
     LOG.debug("DEBUG: waiting for Client at "
         + serverSocket.getLocalSocketAddress());
@@ -175,7 +178,7 @@ class Application<K1 extends Writable, V1 extends Writable, K2 extends Writable,
     } catch (SocketException e) {
       throw new SocketException(
           "Timout: Client pipes application was not connecting!");
-    } 
+    }
   }
 
   /**

@@ -51,7 +51,6 @@ import org.apache.hama.bsp.BSPJob;
 import org.apache.hama.bsp.BSPJobClient;
 import org.apache.hama.bsp.FileInputFormat;
 import org.apache.hama.bsp.FileOutputFormat;
-import org.apache.hama.bsp.HashPartitioner;
 import org.apache.hama.bsp.InputFormat;
 import org.apache.hama.bsp.OutputFormat;
 import org.apache.hama.bsp.Partitioner;
@@ -139,6 +138,7 @@ public class Submitter implements Tool {
     return conf.get("hama.pipes.gpu.executable");
   }
 
+  /* TODO NOT NEEDED ISJAVABSP -> ALWAYS TRUE!! */
   /**
    * Set whether the BSP is written in Java.
    * 
@@ -214,27 +214,6 @@ public class Submitter implements Tool {
   }
 
   /**
-   * Save away the user's original partitioner before we override it.
-   * 
-   * @param conf the configuration to modify
-   * @param cls the user's partitioner class
-   */
-  static void setJavaPartitioner(Configuration conf, Class cls) {
-    conf.set("hama.pipes.partitioner", cls.getName());
-  }
-
-  /**
-   * Get the user's original partitioner.
-   * 
-   * @param conf the configuration to look in
-   * @return the class that the user submitted
-   */
-  static Class<? extends Partitioner> getJavaPartitioner(Configuration conf) {
-    return conf.getClass("hama.pipes.partitioner", HashPartitioner.class,
-        Partitioner.class);
-  }
-
-  /**
    * Does the user want to keep the command file for debugging? If this is true,
    * pipes will write a copy of the command data to a file in the task directory
    * named "downlink.data", which may be used to run the C++ program under the
@@ -273,20 +252,11 @@ public class Submitter implements Tool {
   }
 
   private static void setupPipesJob(BSPJob job) throws IOException {
-    // default map output types to Text
+
     if (!getIsJavaBSP(job.getConf())) {
       job.setBspClass(PipesBSP.class);
       job.setJarByClass(PipesBSP.class);
-
-      // Save the user's partitioner and hook in our's.
-      // setJavaPartitioner(job, job.getPartitionerClass());
-      // job.setPartitionerClass(PipesPartitioner.class);
     }
-    /*
-     * if (!getIsJavaReducer(conf)) { conf.setReducerClass(PipesReducer.class);
-     * if (!getIsJavaRecordWriter(conf)) {
-     * conf.setOutputFormat(NullOutputFormat.class); } }
-     */
 
     String textClassname = Text.class.getName();
     setIfUnset(job.getConf(), "bsp.input.key.class", textClassname);
@@ -466,9 +436,9 @@ public class Submitter implements Tool {
         "\"n1=v1,n2=v2,..\" (Deprecated) Optional. Add or override a JobConf property.",
         "key=val");
 
-    cli.addOption("program", false, "URI to application executable", "class");
-    cli.addOption("cpubin", false, "URI to application cpu executable", "class");
-    cli.addOption("gpubin", false, "URI to application gpu executable", "class");
+    cli.addOption("program", false, "URI to application executable", "path");
+    cli.addOption("cpubin", false, "URI to application cpu executable", "path");
+    cli.addOption("gpubin", false, "URI to application gpu executable", "path");
     Parser parser = cli.createParser();
     try {
 
@@ -505,10 +475,13 @@ public class Submitter implements Tool {
         job.setOutputFormat(getClass(results, "outputformat", conf,
             OutputFormat.class));
       }
-
       if (results.hasOption("bsp")) {
         setIsJavaBSP(job.getConf(), true);
         job.setBspClass(getClass(results, "bsp", conf, BSP.class));
+      }
+      if (results.hasOption("partitioner")) {
+        job.setPartitioner(getClass(results, "partitioner", conf,
+            Partitioner.class));
       }
       /*
        * if (results.hasOption("partitioner")) {

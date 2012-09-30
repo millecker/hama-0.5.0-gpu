@@ -23,6 +23,7 @@ import java.net.URLDecoder;
 import java.util.Enumeration;
 
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
@@ -31,6 +32,8 @@ import org.apache.hama.Constants;
 import org.apache.hama.HamaConfiguration;
 import org.apache.hama.bsp.message.compress.BSPMessageCompressor;
 import org.apache.hama.bsp.message.compress.BSPMessageCompressorFactory;
+import org.apache.hama.pipes.PipesApplicable;
+import org.apache.hama.pipes.PipesApplication;
 
 /**
  * A BSP job configuration.
@@ -46,6 +49,9 @@ public class BSPJob extends BSPJobContext {
   private JobState state = JobState.DEFINE;
   private BSPJobClient jobClient;
   private RunningJob info;
+  /* MODIFICATIONS DONE */
+  private PipesApplication<?, ?, ?, ?, ?> pipesApp = null;
+  /* MODIFICATIONS DONE */
 
   public BSPJob() throws IOException {
     this(new HamaConfiguration());
@@ -250,6 +256,13 @@ public class BSPJob extends BSPJobContext {
     return conf.getBoolean(name, defaultValue);
   }
 
+  public final <K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable> PipesApplication<? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable> getPipesApplication() {
+
+    if (pipesApp == null)
+      pipesApp = new PipesApplication<K1, V1, K2, V2, BytesWritable>();
+    return pipesApp;
+  }
+
   /* MODIFICATIONS DONE */
 
   public void setNumBspTask(int tasks) {
@@ -389,9 +402,17 @@ public class BSPJob extends BSPJobContext {
 
   @SuppressWarnings("rawtypes")
   public Partitioner getPartitioner() {
-    return ReflectionUtils.newInstance(conf
+    Partitioner partitioner = ReflectionUtils.newInstance(conf
         .getClass("bsp.input.partitioner.class", HashPartitioner.class,
             Partitioner.class), conf);
+
+    /* MODIFICATIONS DONE */
+    if (conf.get("bsp.input.partitioner.class", "").equals("PipesPartitioner"))
+      ((PipesApplicable) partitioner)
+          .setApplication(this.getPipesApplication());
+
+    return partitioner;
+    /* MODIFICATIONS DONE */
   }
 
   @SuppressWarnings("rawtypes")

@@ -33,20 +33,20 @@ import org.apache.hama.bsp.sync.SyncException;
  * 
  */
 public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable, M extends Writable>
-    extends BSP<K1, V1, K2, V2, BytesWritable> {
+    extends BSP<K1, V1, K2, V2, BytesWritable> implements PipesApplicable {
 
   private static final Log LOG = LogFactory.getLog(PipesBSP.class);
-  private Application<K1, V1, K2, V2, BytesWritable> application;
+  private PipesApplication<K1, V1, K2, V2, BytesWritable> pipesApp = null;
 
   public void setup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
       throws IOException, SyncException, InterruptedException {
 
-    this.application = new Application<K1, V1, K2, V2, BytesWritable>(peer);
+    this.pipesApp.start(peer);
 
-    application.getDownlink().runSetup(false, false);
+    pipesApp.getDownlink().runSetup(false, false);
 
     try {
-      application.waitForFinish();
+      pipesApp.waitForFinish();
     } catch (Throwable e) {
       LOG.error(e);
     }
@@ -55,10 +55,10 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
   public void bsp(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
       throws IOException, SyncException, InterruptedException {
 
-    application.getDownlink().runBsp(false, false);
+    pipesApp.getDownlink().runBsp(false, false);
 
     try {
-      application.waitForFinish();
+      pipesApp.waitForFinish();
     } catch (Throwable e) {
       LOG.error(e);
     }
@@ -75,14 +75,21 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
   public void cleanup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
       throws IOException {
 
-    application.getDownlink().runCleanup(false, false);
+    pipesApp.getDownlink().runCleanup(false, false);
 
     try {
-      application.waitForFinish();
+      pipesApp.waitForFinish();
     } catch (Throwable e) {
       LOG.error(e);
     }
-    application.cleanup();
+    pipesApp.cleanup();
+  }
+
+  @SuppressWarnings("unchecked")
+  @Override
+  public void setApplication(
+      PipesApplication<? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable> pipesApp) {
+    this.pipesApp = (PipesApplication<K1, V1, K2, V2, BytesWritable>) pipesApp;
   }
 
 }
