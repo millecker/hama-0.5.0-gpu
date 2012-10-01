@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-package org.apache.hama.pipes;
+package org.apache.hama.pipes.protocol;
 
 import java.io.IOException;
 
@@ -32,7 +32,7 @@ import org.apache.hadoop.io.Writable;
  * @author Martin Illecker
  * 
  */
-interface DownwardProtocol<K extends Writable, V extends Writable> {
+public interface DownwardProtocol<K extends Writable, V extends Writable> {
 
   /**
    * Start communication
@@ -42,7 +42,7 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
   void start() throws IOException;
 
   /**
-   * Set the input types for Maps.
+   * Set the input types for BSP.
    * 
    * @param keyType the name of the key's type
    * @param valueType the name of the value's type
@@ -50,11 +50,33 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
    */
   void setInputTypes(String keyType, String valueType) throws IOException;
 
+  /**
+   * runSetup
+   * 
+   * @throws IOException
+   */
+  void runSetup(boolean pipedInput, boolean pipedOutput) throws IOException;
+
+  /**
+   * runBsp
+   * 
+   * @throws IOException
+   */
   void runBsp(boolean pipedInput, boolean pipedOutput) throws IOException;
 
+  /**
+   * runCleanup
+   * 
+   * @throws IOException
+   */
   void runCleanup(boolean pipedInput, boolean pipedOutput) throws IOException;
 
-  void runSetup(boolean pipedInput, boolean pipedOutput) throws IOException;
+  /**
+   * getPartition
+   * 
+   * @throws IOException
+   */
+  int getPartition(String key, String value, int numTasks) throws IOException;
 
   /**
    * The task should stop as soon as possible, because something has gone wrong.
@@ -65,13 +87,22 @@ interface DownwardProtocol<K extends Writable, V extends Writable> {
 
   /**
    * Flush the data through any buffers.
+   * 
+   * @throws IOException
    */
   void flush() throws IOException;
 
   /**
    * Close the connection.
+   * 
+   * @throws IOException, InterruptedException
    */
   void close() throws IOException, InterruptedException;
 
+  /**
+   * waitForFinish
+   * 
+   * @throws IOException, InterruptedException
+   */
   boolean waitForFinish() throws IOException, InterruptedException;
 }

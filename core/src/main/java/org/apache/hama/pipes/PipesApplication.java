@@ -40,6 +40,8 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.TaskAttemptID;
 import org.apache.hama.bsp.TaskLog;
+import org.apache.hama.pipes.protocol.BinaryProtocol;
+import org.apache.hama.pipes.protocol.DownwardProtocol;
 
 /**
  * This class is responsible for launching and communicating with the child

@@ -160,7 +160,8 @@ namespace HamaPipes {
       DONE, TASK_DONE, 
       REGISTER_COUNTER, INCREMENT_COUNTER,
       SEQFILE_OPEN, SEQFILE_READNEXT, 
-      SEQFILE_APPEND, SEQFILE_CLOSE
+      SEQFILE_APPEND, SEQFILE_CLOSE,
+      PARTITION_REQUEST, PARTITION_RESPONSE
   };
     
   /* Only needed for debugging output */
@@ -177,7 +178,8 @@ namespace HamaPipes {
       stringify( DONE ), stringify( TASK_DONE ), 
       stringify( REGISTER_COUNTER ), stringify( INCREMENT_COUNTER ),
       stringify( SEQFILE_OPEN ), stringify( SEQFILE_READNEXT ),
-      stringify( SEQFILE_APPEND ), stringify( SEQFILE_CLOSE )
+      stringify( SEQFILE_APPEND ), stringify( SEQFILE_CLOSE ),
+      stringify( PARTITION_REQUEST ), stringify( PARTITION_RESPONSE )
     };
 
   /********************************************/
@@ -293,27 +295,9 @@ namespace HamaPipes {
     virtual void nextEvent() {
       int32_t cmd;
       cmd = deserializeInt(*downStream);
-      
-      /*
-      if (!authDone && cmd != AUTHENTICATION_REQ) {
-        //Authentication request must be the first message if
-        //authentication is not complete
-        std::cerr << "Command:" << cmd << "received before authentication. " 
-            << "Exiting.." << std::endl;
-        exit(-1);
-      }*/
-    
-      switch (cmd) {
-              
-      /*case AUTHENTICATION_REQ: {
-        string digest;
-        string challenge;
-        deserializeString(digest, *downStream);
-        deserializeString(challenge, *downStream);
-        verifyDigestAndRespond(digest, challenge);
-        break;
-      }*/
-              
+        
+     switch (cmd) {
+            
       case START_MESSAGE: {
         int32_t prot;
         prot = deserializeInt(*downStream);
@@ -321,6 +305,7 @@ namespace HamaPipes {
         handler->start(prot);
         break;
       }
+      /* SET BSP Job Configuration / Environment */
       case SET_BSPJOB_CONF: {
         int32_t entries;
         entries = deserializeInt(*downStream);
@@ -380,6 +365,18 @@ namespace HamaPipes {
         handler->runCleanup(pipedInput, pipedOutput);
         break;
       }
+      case PARTITION_REQUEST: {
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got PARTITION_REQUEST\n"); 
+        /*TODO*/
+        int32_t pipedInput;
+        int32_t pipedOutput;
+        pipedInput = deserializeInt(*downStream);
+        pipedOutput = deserializeInt(*downStream);
+        handler->runCleanup(pipedInput, pipedOutput);
+        
+        break;
+      }
+
         
       case GET_MSG_COUNT: {
         int32_t msgCount = deserializeInt(*downStream);
@@ -472,7 +469,7 @@ namespace HamaPipes {
         HADOOP_ASSERT(false, "Unknown binary command " + toString(cmd));
         fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - Unknown binary command: %d\n",cmd); 
       }
-    }
+     }
       
     virtual ~BinaryProtocol() {
       delete downStream;

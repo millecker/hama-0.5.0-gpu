@@ -17,8 +17,11 @@
  */
 package org.apache.hama.pipes;
 
+import java.io.IOException;
+
 import org.apache.hadoop.io.Writable;
 import org.apache.hama.bsp.Partitioner;
+import org.mortbay.log.Log;
 
 /**
  * 
@@ -43,7 +46,13 @@ public class PipesPartitioner<K, V> implements Partitioner<K, V>,
    */
   @Override
   public int getPartition(K key, V value, int numTasks) {
-    return 0;
+    int returnVal = 0;
+    try {
+      returnVal = pipesApp.getDownlink().getPartition(key.toString(),value.toString(),numTasks);
+    }catch(IOException e) {
+      Log.warn(e);
+    }
+    return returnVal;
   }
 
   @Override
