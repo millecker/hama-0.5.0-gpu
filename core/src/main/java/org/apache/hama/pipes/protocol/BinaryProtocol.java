@@ -65,7 +65,8 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   private UplinkReader<K1, V1, K2, V2> uplink;
 
   private boolean hasTask = false;
-
+  private int result = -1;
+  
   /**
    * Create a proxy object that will speak the binary protocol on a socket.
    * Upward messages are passed on the specified handler and downward downward
@@ -101,8 +102,12 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     return hasTask;
   }
 
-  public void setHasTask(boolean hasTask) {
+  public synchronized void setHasTask(boolean hasTask) {
     this.hasTask = hasTask;
+  }
+  
+  public synchronized void setResult(int result) {
+    this.result = result;
   }
 
   public DataOutputStream getStream() {
@@ -178,7 +183,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
-    hasTask = true;
+    setHasTask(true);
     LOG.debug("Sent MessageType.RUN_SETUP");
   }
 
@@ -190,7 +195,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
-    hasTask = true;
+    setHasTask(true);
     LOG.debug("Sent MessageType.RUN_BSP");
   }
 
@@ -202,15 +207,29 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     WritableUtils.writeVInt(stream, pipedInput ? 1 : 0);
     WritableUtils.writeVInt(stream, pipedOutput ? 1 : 0);
     flush();
-    hasTask = true;
+    setHasTask(true);
     LOG.debug("Sent MessageType.RUN_CLEANUP");
   }
 
   @Override
   public int getPartition(String key, String value, int numTasks)
       throws IOException {
-    // TODO Auto-generated method stub
-    return 0;
+
+    WritableUtils.writeVInt(stream, MessageType.PARTITION_REQUEST.code);
+    Text.writeString(stream, key);
+    Text.writeString(stream, value);
+    WritableUtils.writeVInt(stream, numTasks);
+    flush();
+    setHasTask(true);
+    LOG.debug("Sent MessageType.PARTITION_REQUEST");
+    
+    try {
+      waitForFinish(); //wait for response
+    } catch (InterruptedException e) {
+      LOG.error(e);
+    }
+    
+    return result;
   }
 
   @Override

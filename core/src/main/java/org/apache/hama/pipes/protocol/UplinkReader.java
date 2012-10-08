@@ -42,31 +42,31 @@ import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.util.KeyValuePair;
 
-public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable> extends Thread {
-  
+public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
+    extends Thread {
+
   private static final Log LOG = LogFactory.getLog(UplinkReader.class);
-  
+
   private DataInputStream inStream;
   private K2 key;
   private V2 value;
-  
+
   private BinaryProtocol<K1, V1, K2, V2> binProtocol;
   private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
-  
+
   private Map<Integer, SequenceFile.Reader> sequenceFileReaders;
   private Map<Integer, SequenceFile.Writer> sequenceFileWriters;
 
   public UplinkReader(BinaryProtocol<K1, V1, K2, V2> binaryProtocol,
-      BSPPeer<K1, V1, K2, V2, BytesWritable> peer,
-      InputStream stream) throws IOException {
+      BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream)
+      throws IOException {
 
     this.binProtocol = binaryProtocol;
     this.peer = peer;
-    
+
     this.inStream = new DataInputStream(new BufferedInputStream(stream,
         BinaryProtocol.BUFFER_SIZE));
 
-    
     this.key = (K2) ReflectionUtils.newInstance((Class<? extends K2>) peer
         .getConfiguration().getClass("bsp.output.key.class", Object.class),
         peer.getConfiguration());
@@ -75,16 +75,13 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         .getConfiguration().getClass("bsp.output.value.class", Object.class),
         peer.getConfiguration());
 
-    
     this.sequenceFileReaders = new HashMap<Integer, SequenceFile.Reader>();
     this.sequenceFileWriters = new HashMap<Integer, SequenceFile.Writer>();
   }
 
- 
-
   public void run() {
     DataOutputStream stream = binProtocol.getStream();
-    
+
     while (true) {
       try {
         if (Thread.currentThread().isInterrupted()) {
@@ -97,8 +94,8 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         if (cmd == MessageType.WRITE_KEYVALUE.code) { // INCOMING
           readObject(key); // string or binary only
           readObject(value); // string or binary only
-          LOG.debug("Got MessageType.WRITE_KEYVALUE - Key: " + key
-              + " Value: " + value);
+          LOG.debug("Got MessageType.WRITE_KEYVALUE - Key: " + key + " Value: "
+              + value);
           peer.write(key, value);
 
         } else if (cmd == MessageType.READ_KEYVALUE.code) { // OUTGOING
@@ -235,8 +232,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
               + peer.getNumPeers());
 
         } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { // OUTGOING
-          WritableUtils.writeVInt(stream,
-              MessageType.GET_SUPERSTEP_COUNT.code);
+          WritableUtils.writeVInt(stream, MessageType.GET_SUPERSTEP_COUNT.code);
           WritableUtils.writeVLong(stream, peer.getSuperstepCount());
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "
@@ -250,6 +246,9 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           LOG.debug("Got MessageType.CLEAR");
           peer.clear();
 
+          /********************************************/
+          /*******  SequenceFileConnector IMPL  *******/  
+          /********************************************/  
           /* SequenceFileConnector Implementation */
         } else if (cmd == MessageType.SEQFILE_OPEN.code) { // OUTGOING
           String path = Text.readString(inStream);
@@ -260,7 +259,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
           Configuration conf = peer.getConfiguration();
           FileSystem fs = FileSystem.get(conf);
-          if (path.equals("r")) {
+          if (option.equals("r")) {
             SequenceFile.Reader reader;
             try {
               reader = new SequenceFile.Reader(fs, new Path(path), conf);
@@ -270,7 +269,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
               fileID = -1;
             }
 
-          } else if (path.equals("w")) {
+          } else if (option.equals("w")) {
             SequenceFile.Writer writer;
             try {
               writer = new SequenceFile.Writer(fs, conf, new Path(path),
@@ -295,7 +294,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
           if (sequenceFileReaders.containsKey(fileID))
             sequenceFileReaders.get(fileID).next(key, val);
-          
+
           // RESPOND
           WritableUtils.writeVInt(stream, MessageType.SEQFILE_READNEXT.code);
           if (key != null && val != null) {
@@ -326,8 +325,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           WritableUtils.writeVInt(stream, MessageType.SEQFILE_APPEND.code);
           WritableUtils.writeVInt(stream, result ? 1 : 0);
           binProtocol.flush();
-          LOG.debug("Responded MessageType.SEQFILE_APPEND - Result: "
-              + result);
+          LOG.debug("Responded MessageType.SEQFILE_APPEND - Result: " + result);
 
         } else if (cmd == MessageType.SEQFILE_CLOSE.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
@@ -347,6 +345,17 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           binProtocol.flush();
           LOG.debug("Responded MessageType.SEQFILE_CLOSE - Result: " + result);
 
+          /********************************************/
+          /*******       Partitioner IMPL       *******/  
+          /********************************************/ 
+          
+        } else if (cmd == MessageType.PARTITION_RESPONSE.code) { // INCOMING
+          int partResponse = WritableUtils.readVInt(inStream);
+          binProtocol.setResult(partResponse);
+          binProtocol.setHasTask(false);
+          LOG.debug("Received MessageType.PARTITION_RESPONSE - Result: " + partResponse);
+
+          
         } else {
           throw new IOException("Bad command code: " + cmd);
         }
@@ -359,7 +368,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
       }
     }
   }
- 
+
   private void readObject(Writable obj) throws IOException {
     int numBytes = WritableUtils.readVInt(inStream);
     byte[] buffer;
@@ -385,8 +394,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
       // obj.readFields(inStream);
     }
   }
-  
-  
+
   public void closeConnection() throws IOException {
     inStream.close();
   }
