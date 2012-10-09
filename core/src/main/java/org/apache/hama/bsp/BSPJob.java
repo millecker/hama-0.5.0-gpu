@@ -37,6 +37,7 @@ import org.apache.hama.bsp.message.compress.BSPMessageCompressorFactory;
 import org.apache.hama.pipes.PipesApplicable;
 import org.apache.hama.pipes.PipesApplication;
 import org.apache.hama.pipes.PipesPartitioner;
+import org.apache.hama.pipes.util.DistributedCacheUtil;
 
 /**
  * A BSP job configuration.
@@ -423,7 +424,10 @@ public class BSPJob extends BSPJobContext {
           .setApplication(this.getPipesApplication());
 
       try {
+        
+        DistributedCacheUtil.moveLocalFiles(conf);
         this.getPipesApplication().start(conf);
+      
       } catch (IOException e) {
         LOG.error(e);
       } catch (InterruptedException e) {
