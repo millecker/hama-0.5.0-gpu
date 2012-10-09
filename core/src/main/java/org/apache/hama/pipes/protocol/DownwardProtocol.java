@@ -32,7 +32,7 @@ import org.apache.hadoop.io.Writable;
  * @author Martin Illecker
  * 
  */
-public interface DownwardProtocol<K extends Writable, V extends Writable> {
+public interface DownwardProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable> {
 
   /**
    * Start communication
@@ -105,4 +105,5 @@ public interface DownwardProtocol<K extends Writable, V extends Writable> {
    * @throws IOException, InterruptedException
    */
   boolean waitForFinish() throws IOException, InterruptedException;
+
 }

@@ -28,6 +28,7 @@ import java.net.Socket;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.Text;
@@ -49,7 +50,7 @@ import org.apache.hama.pipes.Submitter;
  * @param <V2>
  */
 public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
-    implements DownwardProtocol<K1, V1> {
+    implements DownwardProtocol<K1, V1, K2, V2> {
 
   private static final Log LOG = LogFactory.getLog(BinaryProtocol.class
       .getName());
@@ -63,24 +64,47 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   private final DataOutputBuffer buffer = new DataOutputBuffer();
 
   private UplinkReader<K1, V1, K2, V2> uplink;
+  private Configuration conf;
 
   private boolean hasTask = false;
   private int result = -1;
-  
+
   /**
    * Create a proxy object that will speak the binary protocol on a socket.
    * Upward messages are passed on the specified handler and downward downward
    * messages are public methods on this object.
    * 
-   * @param sock The socket to communicate on.
-   * @param handler The handler for the received messages.
-   * @param key The object to read keys into.
-   * @param value The object to read values into.
    * @param jobConfig The job's configuration
+   * @param sock The socket to communicate on.
+   * @throws IOException
+   */
+  public BinaryProtocol(Configuration conf, Socket sock) throws IOException {
+    this.conf = conf;
+    OutputStream raw = sock.getOutputStream();
+
+    // If we are debugging, save a copy of the downlink commands to a file
+    if (Submitter.getKeepCommandFile(conf)) {
+      raw = new TeeOutputStream("downlink.data", raw);
+    }
+    stream = new DataOutputStream(new BufferedOutputStream(raw, BUFFER_SIZE));
+    uplink = new UplinkReader<K1, V1, K2, V2>(this, sock.getInputStream());
+
+    uplink.setName("pipe-uplink-handler");
+    uplink.start();
+  }
+
+  /**
+   * Create a proxy object that will speak the binary protocol on a socket.
+   * Upward messages are passed on the specified handler and downward downward
+   * messages are public methods on this object.
+   * 
+   * @param peer the current peer including the task's configuration
+   * @param sock The socket to communicate on.
    * @throws IOException
    */
   public BinaryProtocol(BSPPeer<K1, V1, K2, V2, BytesWritable> peer, Socket sock)
       throws IOException {
+    this.conf = peer.getConfiguration();
     OutputStream raw = sock.getOutputStream();
 
     // If we are debugging, save a copy of the downlink commands to a file
@@ -95,9 +119,9 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   }
 
   /* **************************************************** */
-  /* Setter and Getter starts...                          */
+  /* Setter and Getter starts... */
   /* **************************************************** */
-  
+
   public boolean isHasTask() {
     return hasTask;
   }
@@ -105,7 +129,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   public synchronized void setHasTask(boolean hasTask) {
     this.hasTask = hasTask;
   }
-  
+
   public synchronized void setResult(int result) {
     this.result = result;
   }
@@ -113,11 +137,14 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   public DataOutputStream getStream() {
     return stream;
   }
-  
-  /* **************************************************** */
-  /* Setter and Getter ends...                            */
-  /* **************************************************** */
 
+  public Configuration getConfiguration() {
+    return conf;
+  }
+
+  /* **************************************************** */
+  /* Setter and Getter ends... */
+  /* **************************************************** */
 
   /**
    * An output stream that will save a copy of the data into a file.
@@ -222,13 +249,13 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     flush();
     setHasTask(true);
     LOG.debug("Sent MessageType.PARTITION_REQUEST");
-    
+
     try {
-      waitForFinish(); //wait for response
+      waitForFinish(); // wait for response
     } catch (InterruptedException e) {
       LOG.error(e);
     }
-    
+
     return result;
   }
 
@@ -262,7 +289,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     uplink.closeConnection();
     stream.close();
   }
-  
+
   @Override
   public boolean waitForFinish() throws IOException, InterruptedException {
     // LOG.debug("waitForFinish... "+hasTask);
@@ -281,27 +308,25 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   /* Implementation of DownwardProtocol<K1, V1> ends... */
   /* **************************************************** */
 
-  
   /* **************************************************** */
-  /* Private Class methods begins...                      */
+  /* Private Class methods begins... */
   /* **************************************************** */
-  
+
   private void endOfInput() throws IOException {
     WritableUtils.writeVInt(stream, MessageType.CLOSE.code);
     flush();
-    //LOG.debug("Sent close command");
+    // LOG.debug("Sent close command");
     LOG.debug("Sent MessageType.CLOSE");
   }
-  
+
   /* **************************************************** */
-  /* Private Class methods ends...                        */
+  /* Private Class methods ends... */
   /* **************************************************** */
-  
-  
+
   /* **************************************************** */
-  /* Public Class methods begins...                       */
+  /* Public Class methods begins... */
   /* **************************************************** */
- 
+
   /**
    * Write the given object to the stream. If it is a Text or BytesWritable,
    * write it directly. Otherwise, write it to a buffer and then write the
@@ -331,26 +356,19 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
       stream.write(buffer.getData(), 0, length);
     }
   }
-  
+
   /*
-  public void setBSPJob(Configuration conf) throws IOException {
-    WritableUtils.writeVInt(stream, MessageType.SET_BSPJOB_CONF.code);
-    List<String> list = new ArrayList<String>();
-    for (Map.Entry<String, String> itm : conf) {
-      list.add(itm.getKey());
-      list.add(itm.getValue());
-    }
-    WritableUtils.writeVInt(stream, list.size());
-    for (String entry : list) {
-      Text.writeString(stream, entry);
-    }
-    flush();
-    LOG.debug("Sent MessageType.SET_BSPJOB_CONF");
-  }
-*/
-  
+   * public void setBSPJob(Configuration conf) throws IOException {
+   * WritableUtils.writeVInt(stream, MessageType.SET_BSPJOB_CONF.code);
+   * List<String> list = new ArrayList<String>(); for (Map.Entry<String, String>
+   * itm : conf) { list.add(itm.getKey()); list.add(itm.getValue()); }
+   * WritableUtils.writeVInt(stream, list.size()); for (String entry : list) {
+   * Text.writeString(stream, entry); } flush();
+   * LOG.debug("Sent MessageType.SET_BSPJOB_CONF"); }
+   */
+
   /* **************************************************** */
-  /* Public Class methods ends...                         */
+  /* Public Class methods ends... */
   /* **************************************************** */
 
 }

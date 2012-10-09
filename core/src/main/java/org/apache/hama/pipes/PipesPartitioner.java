@@ -19,9 +19,10 @@ package org.apache.hama.pipes;
 
 import java.io.IOException;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.io.Writable;
 import org.apache.hama.bsp.Partitioner;
-import org.mortbay.log.Log;
 
 /**
  * 
@@ -33,6 +34,8 @@ import org.mortbay.log.Log;
 public class PipesPartitioner<K, V> implements Partitioner<K, V>,
     PipesApplicable {
 
+  private static final Log LOG = LogFactory.getLog(PipesPartitioner.class
+      .getName());
   private PipesApplication<? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable, ? extends Writable> pipesApp = null;
 
   /**
@@ -48,9 +51,16 @@ public class PipesPartitioner<K, V> implements Partitioner<K, V>,
   public int getPartition(K key, V value, int numTasks) {
     int returnVal = 0;
     try {
-      returnVal = pipesApp.getDownlink().getPartition(key.toString(),value.toString(),numTasks);
-    }catch(IOException e) {
-      Log.warn(e);
+      LOG.info("pipesApp==null: " + ((pipesApp == null) ? "true" : "false"));
+      LOG.info("pipesApp.getDownlink()==null: "
+          + ((pipesApp.getDownlink() == null) ? "true" : "false"));
+
+      if ( (pipesApp != null) && (pipesApp.getDownlink() != null) )
+          returnVal = pipesApp.getDownlink().getPartition(key.toString(),
+              value.toString(), numTasks);
+
+    } catch (IOException e) {
+      LOG.error(e);
     }
     return returnVal;
   }

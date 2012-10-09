@@ -110,8 +110,13 @@ public class SequenceFileDumper {
     Parser parser = cli.createParser();
 
     try {
-      CommandLine cmdLine = parser.parse(cli.options, args);
-      LOG.debug("DEBUG: Arguments: " + args);
+      HamaConfiguration conf = new HamaConfiguration();
+      
+      GenericOptionsParser genericParser = new GenericOptionsParser(conf,
+          args);
+      
+      CommandLine cmdLine = parser.parse(cli.options, genericParser.getRemainingArgs());
+      LOG.debug("DEBUG: Arguments: " + genericParser.getRemainingArgs());
 
       if (cmdLine.hasOption("help")) {
         cli.printUsage();
@@ -119,9 +124,7 @@ public class SequenceFileDumper {
       }
 
       if (cmdLine.hasOption("seqFile")) {
-        Path path = new Path(cmdLine.getOptionValue("seqFile"));
-
-        HamaConfiguration conf = new HamaConfiguration();
+        Path path = new Path(cmdLine.getOptionValue("seqFile"));  
 
         FileSystem fs = FileSystem.get(path.toUri(), conf);
         SequenceFile.Reader reader = new SequenceFile.Reader(fs, path, conf);

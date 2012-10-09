@@ -22,6 +22,7 @@
 %module (directors="1") HamaPipes
 %include "std_string.i"
 %feature("director") BSP;
+%feature("director") Partitioner;
 %feature("director") RecordReader;
 %feature("director") RecordWriter;
 %feature("director") Factory;
@@ -288,6 +289,16 @@ public:
   virtual void cleanup(BSPContext& context) = 0;
 };
 
+/**
+ * User code to decide where each key should be sent.
+ */
+class Partitioner {
+public:
+    
+    virtual int partition(const string& key,const string& value, int32_t numOfReduces) = 0;
+    
+    virtual ~Partitioner() {}
+};
     
 /**
  * For applications that want to read the input directly for the map function
@@ -320,6 +331,15 @@ class Factory {
 public:
   virtual BSP* createBSP(BSPContext& context) const = 0;
 
+  /**
+   * Create an application partitioner object.
+   * @return the new partitioner or NULL, if the default partitioner should be 
+   * used.
+   */
+  virtual Partitioner* createPartitioner(BSPContext& context) const {
+    return NULL;
+  }
+    
   /**
    * Create an application record reader.
    * @return the new RecordReader or NULL, if the Java RecordReader should be

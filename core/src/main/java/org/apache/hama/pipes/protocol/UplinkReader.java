@@ -52,17 +52,15 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
   private V2 value;
 
   private BinaryProtocol<K1, V1, K2, V2> binProtocol;
-  private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
+  private BSPPeer<K1, V1, K2, V2, BytesWritable> peer = null;
 
   private Map<Integer, SequenceFile.Reader> sequenceFileReaders;
   private Map<Integer, SequenceFile.Writer> sequenceFileWriters;
 
   public UplinkReader(BinaryProtocol<K1, V1, K2, V2> binaryProtocol,
-      BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream)
-      throws IOException {
+      InputStream stream) throws IOException {
 
     this.binProtocol = binaryProtocol;
-    this.peer = peer;
 
     this.inStream = new DataInputStream(new BufferedInputStream(stream,
         BinaryProtocol.BUFFER_SIZE));
@@ -79,6 +77,30 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
     this.sequenceFileWriters = new HashMap<Integer, SequenceFile.Writer>();
   }
 
+  public UplinkReader(BinaryProtocol<K1, V1, K2, V2> binaryProtocol,
+      BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream)
+      throws IOException {
+    this(binaryProtocol, stream);
+    this.peer = peer;
+  }
+
+  /* **************************************************** */
+  /* Setter and Getter starts... */
+  /* **************************************************** */
+  private boolean isPeerAvailable() {
+    return this.peer != null;
+  }
+
+  /*
+   * public BSPPeer<K1, V1, K2, V2, BytesWritable> getPeer() { return peer; }
+   * public void setPeer(BSPPeer<K1, V1, K2, V2, BytesWritable> peer) {
+   * this.peer = peer; }
+   */
+
+  /* **************************************************** */
+  /* Setter and Getter ends... */
+  /* **************************************************** */
+
   public void run() {
     DataOutputStream stream = binProtocol.getStream();
 
@@ -91,19 +113,19 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         int cmd = WritableUtils.readVInt(inStream);
         LOG.debug("Handling uplink command " + cmd);
 
-        if (cmd == MessageType.WRITE_KEYVALUE.code) { // INCOMING
+        if (cmd == MessageType.WRITE_KEYVALUE.code && isPeerAvailable()) { // INCOMING
           readObject(key); // string or binary only
           readObject(value); // string or binary only
           LOG.debug("Got MessageType.WRITE_KEYVALUE - Key: " + key + " Value: "
               + value);
           peer.write(key, value);
 
-        } else if (cmd == MessageType.READ_KEYVALUE.code) { // OUTGOING
+        } else if (cmd == MessageType.READ_KEYVALUE.code && isPeerAvailable()) { // OUTGOING
 
-          boolean nullinput = peer.getConfiguration().get(
-              "bsp.input.format.class") == null
-              || peer.getConfiguration().get("bsp.input.format.class")
-                  .equals("org.apache.hama.bsp.NullInputFormat");
+          Configuration conf = binProtocol.getConfiguration();
+          boolean nullinput = conf.get("bsp.input.format.class") == null
+              || conf.get("bsp.input.format.class").equals(
+                  "org.apache.hama.bsp.NullInputFormat");
 
           if (!nullinput) {
 
@@ -134,14 +156,16 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
             LOG.debug("Responded MessageType.READ_KEYVALUE - EMPTY KeyValue Pair");
           }
 
-        } else if (cmd == MessageType.INCREMENT_COUNTER.code) { // INCOMING
+        } else if (cmd == MessageType.INCREMENT_COUNTER.code
+            && isPeerAvailable()) { // INCOMING
           // int id = WritableUtils.readVInt(inStream);
           String group = Text.readString(inStream);
           String name = Text.readString(inStream);
           long amount = WritableUtils.readVLong(inStream);
           peer.incrementCounter(name, group, amount);
 
-        } else if (cmd == MessageType.REGISTER_COUNTER.code) { // INCOMING
+        } else if (cmd == MessageType.REGISTER_COUNTER.code
+            && isPeerAvailable()) { // INCOMING
           /* TODO */
           /*
            * Is not used in HAMA -> Hadoop Pipes - maybe for performance, skip
@@ -156,21 +180,21 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           LOG.debug("Pipe child done");
           return;
 
-        } else if (cmd == MessageType.SEND_MSG.code) { // INCOMING
+        } else if (cmd == MessageType.SEND_MSG.code && isPeerAvailable()) { // INCOMING
           String peerName = Text.readString(inStream);
           BytesWritable msg = new BytesWritable();
           readObject(msg);
           LOG.debug("Got MessageType.SEND_MSG to peerName: " + peerName);
           peer.send(peerName, msg);
 
-        } else if (cmd == MessageType.GET_MSG_COUNT.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_MSG_COUNT.code && isPeerAvailable()) { // OUTGOING
           WritableUtils.writeVInt(stream, MessageType.GET_MSG_COUNT.code);
           WritableUtils.writeVInt(stream, peer.getNumCurrentMessages());
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_MSG_COUNT - Count: "
               + peer.getNumCurrentMessages());
 
-        } else if (cmd == MessageType.GET_MSG.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_MSG.code && isPeerAvailable()) { // OUTGOING
           LOG.debug("Got MessageType.GET_MSG");
           WritableUtils.writeVInt(stream, MessageType.GET_MSG.code);
           BytesWritable msg = peer.getCurrentMessage();
@@ -180,11 +204,12 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_MSG - Message(BytesWritable) ");// +msg);
 
-        } else if (cmd == MessageType.SYNC.code) { // INCOMING
+        } else if (cmd == MessageType.SYNC.code && isPeerAvailable()) { // INCOMING
           LOG.debug("Got MessageType.SYNC");
           peer.sync(); // this call blocks
 
-        } else if (cmd == MessageType.GET_ALL_PEERNAME.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_ALL_PEERNAME.code
+            && isPeerAvailable()) { // OUTGOING
           LOG.debug("Got MessageType.GET_ALL_PEERNAME");
           WritableUtils.writeVInt(stream, MessageType.GET_ALL_PEERNAME.code);
           WritableUtils.writeVInt(stream, peer.getAllPeerNames().length);
@@ -195,7 +220,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           LOG.debug("Responded MessageType.GET_ALL_PEERNAME - peerNamesCount: "
               + peer.getAllPeerNames().length);
 
-        } else if (cmd == MessageType.GET_PEERNAME.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_PEERNAME.code && isPeerAvailable()) { // OUTGOING
           int id = WritableUtils.readVInt(inStream);
           LOG.debug("Got MessageType.GET_PEERNAME id: " + id);
 
@@ -217,38 +242,39 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           }
           binProtocol.flush();
 
-        } else if (cmd == MessageType.GET_PEER_INDEX.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_PEER_INDEX.code && isPeerAvailable()) { // OUTGOING
           WritableUtils.writeVInt(stream, MessageType.GET_PEER_INDEX.code);
           WritableUtils.writeVInt(stream, peer.getPeerIndex());
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_PEER_INDEX - PeerIndex: "
               + peer.getPeerIndex());
 
-        } else if (cmd == MessageType.GET_PEER_COUNT.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_PEER_COUNT.code && isPeerAvailable()) { // OUTGOING
           WritableUtils.writeVInt(stream, MessageType.GET_PEER_COUNT.code);
           WritableUtils.writeVInt(stream, peer.getNumPeers());
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_PEER_COUNT - NumPeers: "
               + peer.getNumPeers());
 
-        } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code) { // OUTGOING
+        } else if (cmd == MessageType.GET_SUPERSTEP_COUNT.code
+            && isPeerAvailable()) { // OUTGOING
           WritableUtils.writeVInt(stream, MessageType.GET_SUPERSTEP_COUNT.code);
           WritableUtils.writeVLong(stream, peer.getSuperstepCount());
           binProtocol.flush();
           LOG.debug("Responded MessageType.GET_SUPERSTEP_COUNT - SuperstepCount: "
               + peer.getSuperstepCount());
 
-        } else if (cmd == MessageType.REOPEN_INPUT.code) { // INCOMING
+        } else if (cmd == MessageType.REOPEN_INPUT.code && isPeerAvailable()) { // INCOMING
           LOG.debug("Got MessageType.REOPEN_INPUT");
           peer.reopenInput();
 
-        } else if (cmd == MessageType.CLEAR.code) { // INCOMING
+        } else if (cmd == MessageType.CLEAR.code && isPeerAvailable()) { // INCOMING
           LOG.debug("Got MessageType.CLEAR");
           peer.clear();
 
           /********************************************/
-          /*******  SequenceFileConnector IMPL  *******/  
-          /********************************************/  
+          /******* SequenceFileConnector IMPL *******/
+          /********************************************/
           /* SequenceFileConnector Implementation */
         } else if (cmd == MessageType.SEQFILE_OPEN.code) { // OUTGOING
           String path = Text.readString(inStream);
@@ -257,7 +283,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
           int fileID = -1;
 
-          Configuration conf = peer.getConfiguration();
+          Configuration conf = binProtocol.getConfiguration();
           FileSystem fs = FileSystem.get(conf);
           if (option.equals("r")) {
             SequenceFile.Reader reader;
@@ -346,16 +372,16 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
           LOG.debug("Responded MessageType.SEQFILE_CLOSE - Result: " + result);
 
           /********************************************/
-          /*******       Partitioner IMPL       *******/  
-          /********************************************/ 
-          
+          /******* Partitioner IMPL *******/
+          /********************************************/
+
         } else if (cmd == MessageType.PARTITION_RESPONSE.code) { // INCOMING
           int partResponse = WritableUtils.readVInt(inStream);
           binProtocol.setResult(partResponse);
           binProtocol.setHasTask(false);
-          LOG.debug("Received MessageType.PARTITION_RESPONSE - Result: " + partResponse);
+          LOG.debug("Received MessageType.PARTITION_RESPONSE - Result: "
+              + partResponse);
 
-          
         } else {
           throw new IOException("Bad command code: " + cmd);
         }

@@ -31,6 +31,7 @@ import java.util.Map;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileUtil;
 import org.apache.hadoop.fs.Path;
@@ -60,7 +61,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
   private Process process;
   private Socket clientSocket;
 
-  private DownwardProtocol<K1, V1> downlink;
+  private DownwardProtocol<K1, V1, K2, V2> downlink;
   // private BSPPeer<K1, V1, K2, V2, BytesWritable> peer;
 
   static final boolean WINDOWS = System.getProperty("os.name").startsWith(
@@ -69,15 +70,12 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
   public PipesApplication() {
   }
 
-  /**
-   * Start the child process to handle the task for us.
-   * 
-   * @param peer the current peer including the task's configuration
-   * @throws InterruptedException
-   * @throws IOException
-   */
-  public void start(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
-      throws IOException, InterruptedException {
+  /* **************************************************** */
+  /* Private Methods */
+  /* **************************************************** */
+
+  private Map<String, String> setupEnvironment(Configuration conf)
+      throws IOException {
 
     this.serverSocket = new ServerSocket(0);
 
@@ -89,14 +87,19 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
 
     /* Set Logging Environment from Configuration */
     environment.put("hama.pipes.logging",
-        peer.getConfiguration().getBoolean("hama.pipes.logging", false) ? "1"
-            : "0");
-    LOG.debug("DEBUG hama.pipes.logging: "
-        + peer.getConfiguration().getBoolean("hama.pipes.logging", false));
+        conf.getBoolean("hama.pipes.logging", false) ? "1" : "0");
+    LOG.info("DEBUG hama.pipes.logging: "
+        + conf.getBoolean("hama.pipes.logging", false));
+
+    return environment;
+  }
+
+  private List<String> setupCommand(Configuration conf) throws IOException,
+      InterruptedException {
 
     List<String> cmd = new ArrayList<String>();
-    String interpretor = peer.getConfiguration().get(
-        "hama.pipes.executable.interpretor");
+
+    String interpretor = conf.get("hama.pipes.executable.interpretor");
     if (interpretor != null) {
       cmd.add(interpretor);
     }
@@ -104,25 +107,24 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      LOG.debug("DEBUG LocalCacheFilesCount: "
-          + DistributedCache.getLocalCacheFiles(peer.getConfiguration()).length);
-      for (Path u : DistributedCache
-          .getLocalCacheFiles(peer.getConfiguration()))
-        LOG.debug("DEBUG LocalCacheFiles: " + u);
+      LOG.info("DEBUG LocalCacheFilesCount: "
+          + DistributedCache.getLocalCacheFiles(conf).length);
+      for (Path u : DistributedCache.getLocalCacheFiles(conf))
+        LOG.info("DEBUG LocalCacheFiles: " + u);
 
-      executable = DistributedCache.getLocalCacheFiles(peer.getConfiguration())[0]
-          .toString();
+      executable = DistributedCache.getLocalCacheFiles(conf)[0].toString();
 
-      LOG.debug("DEBUG: executable: " + executable);
+      LOG.info("DEBUG: executable: " + executable);
 
     } catch (Exception e) {
+      e.printStackTrace();
       // if executable (GPU) missing?
       // LOG.info("ERROR: "
       // + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
       // + " executable is missing!");
 
       LOG.error("Executable: " + executable + " fs.default.name: "
-          + peer.getConfiguration().get("fs.default.name"));
+          + conf.get("fs.default.name"));
 
       throw new IOException("Executable is missing!");
     }
@@ -139,32 +141,95 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     // cmd.add(executable + " " + GPUDeviceId);
     // cmd.add(Integer.toString(GPUDeviceId));
 
+    return cmd;
+  }
+
+  private void checkParentFile(File file) {
+    if (!file.getParentFile().exists()) {
+      file.getParentFile().mkdirs();
+      LOG.debug("File: " + file.getParentFile().getAbsolutePath() + " created!");
+    }
+  }
+
+  /* **************************************************** */
+  /* Public Methods */
+  /* **************************************************** */
+
+  /**
+   * Start the child process to handle the task for us.
+   * 
+   * @param conf task's configuration
+   * @throws InterruptedException
+   * @throws IOException
+   */
+  public void start(Configuration conf) throws IOException,
+      InterruptedException {
+
+    Map<String, String> environment = setupEnvironment(conf);
+
+    List<String> cmd = setupCommand(conf);
+
+    // wrap the command in a stdout/stderr capture
+    /* TODO */
+    TaskAttemptID taskid = new TaskAttemptID();
+    File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
+    File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
+    // Get the desired maximum length of task's logs.
+    long logLength = TaskLog.getTaskLogLength(conf);
+    cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
+
+    checkParentFile(stdout);
+    LOG.debug("STDOUT: " + stdout.getAbsolutePath());
+    checkParentFile(stderr);
+    LOG.debug("STDERR: " + stderr.getAbsolutePath());
+
+    LOG.debug("DEBUG: cmd: " + cmd);
+    process = runClient(cmd, environment); // fork c++ binary
+
+    LOG.info("DEBUG: waiting for Client at "
+        + serverSocket.getLocalSocketAddress());
+
+    try {
+      serverSocket.setSoTimeout(2000);
+      clientSocket = serverSocket.accept();
+
+      downlink = new BinaryProtocol<K1, V1, K2, V2>(conf, clientSocket);
+      downlink.start();
+
+    } catch (SocketException e) {
+      throw new SocketException(
+          "Timout: Client pipes application was not connecting!");
+    }
+  }
+
+  /**
+   * Start the child process to handle the task for us.
+   * 
+   * @param peer the current peer including the task's configuration
+   * @throws InterruptedException
+   * @throws IOException
+   */
+  public void start(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
+      throws IOException, InterruptedException {
+
+    Map<String, String> environment = setupEnvironment(peer.getConfiguration());
+
+    List<String> cmd = setupCommand(peer.getConfiguration());
+
     // wrap the command in a stdout/stderr capture
     TaskAttemptID taskid = peer.getTaskId();
-    // we are starting map/reduce task of the pipes job. this is not a cleanup
-    // attempt.
     File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
     File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
     // Get the desired maximum length of task's logs.
     long logLength = TaskLog.getTaskLogLength(peer.getConfiguration());
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
 
-    if (!stdout.getParentFile().exists()) {
-      stdout.getParentFile().mkdirs();
-      LOG.debug("STDOUT: " + stdout.getParentFile().getAbsolutePath()
-          + " created!");
-    }
+    checkParentFile(stdout);
     LOG.debug("STDOUT: " + stdout.getAbsolutePath());
-
-    if (!stderr.getParentFile().exists()) {
-      stderr.getParentFile().mkdirs();
-      LOG.debug("STDERR: " + stderr.getParentFile().getAbsolutePath()
-          + " created!");
-    }
+    checkParentFile(stderr);
     LOG.debug("STDERR: " + stderr.getAbsolutePath());
 
     LOG.debug("DEBUG: cmd: " + cmd);
-
     process = runClient(cmd, environment); // fork c++ binary
 
     LOG.debug("DEBUG: waiting for Client at "
@@ -189,7 +254,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
    * 
    * @return the downlink proxy
    */
-  DownwardProtocol<K1, V1> getDownlink() {
+  DownwardProtocol<K1, V1, K2, V2> getDownlink() {
     return downlink;
   }
 

@@ -104,6 +104,7 @@ namespace HamaPipes {
     virtual void runBsp(bool pipedInput, bool pipedOutput) = 0;
     virtual void runCleanup(bool pipedInput, bool pipedOutput) = 0;
     virtual void runSetup(bool pipedInput, bool pipedOutput) = 0;
+    virtual void runPartition(const string& key, const string& value, int32_t numTasks) = 0;  
       
     virtual void setNewResult(int32_t value) = 0;
     virtual void setNewResult(int64_t value) = 0;  
@@ -365,15 +366,16 @@ namespace HamaPipes {
         handler->runCleanup(pipedInput, pipedOutput);
         break;
       }
+      
       case PARTITION_REQUEST: {
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got PARTITION_REQUEST\n"); 
-        /*TODO*/
-        int32_t pipedInput;
-        int32_t pipedOutput;
-        pipedInput = deserializeInt(*downStream);
-        pipedOutput = deserializeInt(*downStream);
-        handler->runCleanup(pipedInput, pipedOutput);
-        
+        string partionKey;
+        string partionValue;
+        int32_t numTasks;
+        deserializeString(partionKey, *downStream);
+        deserializeString(partionValue, *downStream);
+        numTasks = deserializeInt(*downStream);
+        handler->runPartition(partionKey, partionValue, numTasks);
         break;
       }
 
@@ -429,6 +431,8 @@ namespace HamaPipes {
         handler->setNewResult(superstepCount);
         break;
       }
+             
+             
       case SEQFILE_OPEN: {
         int32_t fileID = deserializeInt(*downStream);
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_OPEN fileID: %d\n",fileID); 
@@ -454,7 +458,8 @@ namespace HamaPipes {
           handler->setNewResult(result);
           break;
       }
-              
+             
+        
       case CLOSE: {
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got CLOSE\n"); 
         handler->close();
@@ -507,7 +512,7 @@ namespace HamaPipes {
     RecordWriter* writer;
       
     BSP* bsp;
-    //Mapper* mapper;
+    Partitioner* partitioner;
     
     const Factory* factory;
     pthread_mutex_t mutexDone;
@@ -543,7 +548,7 @@ namespace HamaPipes {
       bsp = NULL;
       reader = NULL;
       writer = NULL;
-      //partitioner = NULL;
+      partitioner = NULL;
       protocol = NULL;
       //isNewKey = false;
       //isNewValue = false;
@@ -568,6 +573,7 @@ namespace HamaPipes {
         throw Error("Protocol version " + toString(protocol) + 
                     " not supported");
       }
+      partitioner = factory->createPartitioner(*this);
     }
 
     virtual void setBSPJob(vector<string> values) {
@@ -654,7 +660,19 @@ namespace HamaPipes {
         uplink->sendCMD(TASK_DONE);
       }
     }
-     
+      
+    /********************************************/
+    /*******       Partitioner            *******/  
+    /********************************************/ 
+    virtual void runPartition(const string& key, const string& value, int32_t numTasks){
+      if (partitioner != NULL) {             
+        int part = partitioner->partition(key, value, numTasks);
+        uplink->sendCMD(PARTITION_RESPONSE, part);
+      } else {
+        if(logging)fprintf(stderr,"HamaPipes::BSPContextImpl::runPartition Partitioner is NULL!\n");
+      }
+    } 
+                          
     virtual void setNewResult(int32_t _value) {
       resultInt = _value;
       isNewResultInt = true;  
@@ -1004,7 +1022,7 @@ namespace HamaPipes {
       isNewResultInt = false;
       return (resultInt==1);
     }
-
+      
     /********************************************/
     /*************** Other STUFF  ***************/  
     /********************************************/
