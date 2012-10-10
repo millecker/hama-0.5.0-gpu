@@ -187,12 +187,13 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     LOG.debug("DEBUG: cmd: " + cmd);
     process = runClient(cmd, environment); // fork c++ binary
 
-    LOG.info("DEBUG: waiting for Client at "
+    LOG.debug("DEBUG: waiting for Client at "
         + serverSocket.getLocalSocketAddress());
 
     try {
       serverSocket.setSoTimeout(2000);
       clientSocket = serverSocket.accept();
+      LOG.debug("DEBUG: Client connected! - start BinaryProtocol!");
 
       downlink = new BinaryProtocol<K1, V1, K2, V2>(conf, clientSocket);
       downlink.start();
@@ -246,6 +247,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     try {
       serverSocket.setSoTimeout(2000);
       clientSocket = serverSocket.accept();
+      LOG.debug("DEBUG: Client connected! - start BinaryProtocol!");
 
       downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
       downlink.start();

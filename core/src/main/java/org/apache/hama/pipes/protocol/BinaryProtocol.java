@@ -66,8 +66,10 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   private UplinkReader<K1, V1, K2, V2> uplink;
   private Configuration conf;
 
+  public final Object hasTaskLock = new Object();
   private boolean hasTask = false;
-  private int result = -1;
+  public final Object resultLock = new Object();
+  private Integer resultInt = null;
 
   /**
    * Create a proxy object that will speak the binary protocol on a socket.
@@ -129,9 +131,9 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   public synchronized void setHasTask(boolean hasTask) {
     this.hasTask = hasTask;
   }
-
+  
   public synchronized void setResult(int result) {
-    this.result = result;
+    this.resultInt = result;
   }
 
   public DataOutputStream getStream() {
@@ -247,16 +249,24 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     Text.writeString(stream, value);
     WritableUtils.writeVInt(stream, numTasks);
     flush();
-    setHasTask(true);
-    LOG.debug("Sent MessageType.PARTITION_REQUEST");
+    LOG.info("Sent MessageType.PARTITION_REQUEST - key: " + key + " value: "
+        + value + " numTasks: " + numTasks);
 
-    try {
-      waitForFinish(); // wait for response
-    } catch (InterruptedException e) {
-      LOG.error(e);
-    }
-
-    return result;
+    int resultVal = 0;
+    
+    synchronized (resultLock) {
+      try {
+        while (resultInt==null)
+          resultLock.wait();
+        
+        resultVal = resultInt;
+        resultInt = null;
+        
+      } catch (InterruptedException e) {
+        LOG.error(e);
+      }
+    } 
+    return resultVal;
   }
 
   @Override
@@ -293,14 +303,16 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   @Override
   public boolean waitForFinish() throws IOException, InterruptedException {
     // LOG.debug("waitForFinish... "+hasTask);
-    while (hasTask) {
+    synchronized (hasTaskLock) {
       try {
-        Thread.sleep(100);
-        // LOG.debug("waitForFinish... "+hasTask);
-      } catch (Exception e) {
+        while (hasTask)
+          hasTaskLock.wait();
+        
+      } catch (InterruptedException e) {
         LOG.error(e);
       }
     }
+    
     return hasTask;
   }
 

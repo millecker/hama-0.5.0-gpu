@@ -172,8 +172,11 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
            */
 
         } else if (cmd == MessageType.TASK_DONE.code) { // INCOMING
-          LOG.debug("Got MessageType.TASK_DONE");
-          binProtocol.setHasTask(false);
+          synchronized (binProtocol.hasTaskLock) {
+            binProtocol.setHasTask(false);
+            LOG.debug("Got MessageType.TASK_DONE");
+            binProtocol.hasTaskLock.notify();
+          }         
 
         } else if (cmd == MessageType.DONE.code) { // INCOMING
           LOG.debug("Pipe child done");
@@ -375,10 +378,12 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
         } else if (cmd == MessageType.PARTITION_RESPONSE.code) { // INCOMING
           int partResponse = WritableUtils.readVInt(inStream);
-          binProtocol.setResult(partResponse);
-          binProtocol.setHasTask(false);
-          LOG.debug("Received MessageType.PARTITION_RESPONSE - Result: "
-              + partResponse);
+          synchronized (binProtocol.resultLock) {
+            binProtocol.setResult(partResponse);
+            LOG.debug("Received MessageType.PARTITION_RESPONSE - Result: "
+                + partResponse);
+            binProtocol.resultLock.notify();
+          }
 
         } else {
           throw new IOException("Bad command code: " + cmd);

@@ -295,8 +295,7 @@ public:
 class Partitioner {
 public:
     
-    virtual int partition(const string& key,const string& value, int32_t numOfReduces) = 0;
-    
+    virtual int partition(const string& key,const string& value, int32_t numTasks) = 0;
     virtual ~Partitioner() {}
 };
     
