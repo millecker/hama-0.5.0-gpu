@@ -19,11 +19,14 @@
 
 package org.apache.hama.pipes;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
+import java.net.SocketTimeoutException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -194,9 +197,16 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
       downlink = new BinaryProtocol<K1, V1, K2, V2>(conf, clientSocket);
       downlink.start();
 
-    } catch (SocketException e) {
-      throw new SocketException(
-          "Timout: Client pipes application was not connecting!");
+    } catch (SocketTimeoutException e) {
+      LOG.error("Timout: Client pipes application was not connecting!");
+
+      DataInputStream dis = new DataInputStream(new BufferedInputStream(
+          new FileInputStream(stderr)));
+      while (dis.available() != 0) {
+        LOG.error("PipesApp Error: " + dis.readLine());
+      }
+      dis.close();
+      System.exit(1);
     }
   }
 
@@ -240,9 +250,16 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
       downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
       downlink.start();
 
-    } catch (SocketException e) {
-      throw new SocketException(
-          "Timout: Client pipes application was not connecting!");
+    } catch (SocketTimeoutException e) {
+      LOG.error("Timout: Client pipes application was not connecting!");
+
+      DataInputStream dis = new DataInputStream(new BufferedInputStream(
+          new FileInputStream(stderr)));
+      while (dis.available() != 0) {
+        LOG.error("PipesApp Error: " + dis.readLine());
+      }
+      dis.close();
+      System.exit(1);
     }
   }
 

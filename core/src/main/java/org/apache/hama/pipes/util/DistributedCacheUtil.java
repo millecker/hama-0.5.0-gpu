@@ -61,6 +61,8 @@ public class DistributedCacheUtil {
             LocalFileSystem local = LocalFileSystem.getLocal(conf);
             Path pathDst = new Path(local.getWorkingDirectory(),
                 pathSrc.getName());
+            //LOG.info("user.dir: "+System.getProperty("user.dir"));
+            //LOG.info("WorkingDirectory: "+local.getWorkingDirectory());
             LOG.info("pathDst: "+pathDst);
             hdfs.copyToLocalFile(pathSrc, pathDst);
             files.append(pathDst.toUri().getPath());
