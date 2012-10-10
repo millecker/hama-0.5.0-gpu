@@ -20,6 +20,8 @@ package org.apache.hama.pipes.util;
 import java.io.IOException;
 import java.net.URI;
 
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.filecache.DistributedCache;
 import org.apache.hadoop.fs.FileSystem;
@@ -28,6 +30,8 @@ import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
 
 public class DistributedCacheUtil {
+
+  private static final Log LOG = LogFactory.getLog(DistributedCache.class);
 
   /**
    * Transfers DistributedCache files into the local cache files. Also creates
@@ -52,10 +56,12 @@ public class DistributedCacheUtil {
           }
           FileSystem hdfs = FileSystem.get(conf);
           Path pathSrc = new Path(uri.getPath());
+          LOG.info("pathSrc: "+pathSrc);
           if (hdfs.exists(pathSrc)) {
             LocalFileSystem local = LocalFileSystem.getLocal(conf);
             Path pathDst = new Path(local.getWorkingDirectory(),
                 pathSrc.getName());
+            LOG.info("pathDst: "+pathDst);
             hdfs.copyToLocalFile(pathSrc, pathDst);
             files.append(pathDst.toUri().getPath());
           }
@@ -67,5 +73,4 @@ public class DistributedCacheUtil {
       DistributedCache.addLocalFiles(conf, files.toString());
     }
   }
-  
 }

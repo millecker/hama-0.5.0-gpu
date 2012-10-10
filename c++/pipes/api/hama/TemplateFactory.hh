@@ -28,15 +28,15 @@ namespace HamaPipes {
     }
   };
 
-  template <class BSP, class Partitioner>
+  template <class BSP, class partitioner=void>
   class TemplateFactory: public TemplateFactory2<BSP> {
   public:
-      Partitioner* createPartitioner(BSPContext& context) const {
-          return new Partitioner(context);
+      partitioner* createPartitioner(BSPContext& context) const {
+          return new partitioner(context);
       }
   };
   template <class BSP>
-  class TemplateFactory<BSP, void>
+  class TemplateFactory<BSP,void>
       : public TemplateFactory2<BSP> {
   };
     

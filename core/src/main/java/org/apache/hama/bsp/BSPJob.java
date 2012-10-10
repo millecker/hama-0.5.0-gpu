@@ -55,7 +55,7 @@ public class BSPJob extends BSPJobContext {
   private RunningJob info;
   /* MODIFICATIONS DONE */
   private PipesApplication<?, ?, ?, ?, ?> pipesApp = null;
-  private static final Log LOG = LogFactory.getLog(BSPJob.class.getName());
+  private static final Log LOG = LogFactory.getLog(BSPJob.class);
 
   /* MODIFICATIONS DONE */
 
@@ -414,7 +414,7 @@ public class BSPJob extends BSPJobContext {
         .getClass("bsp.input.partitioner.class", HashPartitioner.class,
             Partitioner.class);
 
-    LOG.info("Partitioner: " + partitionerClass.toString());
+    LOG.info("bsp.input.partitioner.class: " + partitionerClass.toString());
 
     Partitioner partitioner = ReflectionUtils.newInstance(partitionerClass,
         conf);

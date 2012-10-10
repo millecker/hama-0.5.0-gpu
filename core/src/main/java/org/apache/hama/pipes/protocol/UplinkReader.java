@@ -53,25 +53,25 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
   private BinaryProtocol<K1, V1, K2, V2> binProtocol;
   private BSPPeer<K1, V1, K2, V2, BytesWritable> peer = null;
+  private Configuration conf;
 
   private Map<Integer, SequenceFile.Reader> sequenceFileReaders;
   private Map<Integer, SequenceFile.Writer> sequenceFileWriters;
 
   public UplinkReader(BinaryProtocol<K1, V1, K2, V2> binaryProtocol,
-      InputStream stream) throws IOException {
+      Configuration conf, InputStream stream) throws IOException {
 
     this.binProtocol = binaryProtocol;
+    this.conf = conf;
 
     this.inStream = new DataInputStream(new BufferedInputStream(stream,
         BinaryProtocol.BUFFER_SIZE));
 
-    this.key = (K2) ReflectionUtils.newInstance((Class<? extends K2>) peer
-        .getConfiguration().getClass("bsp.output.key.class", Object.class),
-        peer.getConfiguration());
+    this.key = (K2) ReflectionUtils.newInstance((Class<? extends K2>) conf
+        .getClass("bsp.output.key.class", Object.class), conf);
 
-    this.value = (V2) ReflectionUtils.newInstance((Class<? extends V2>) peer
-        .getConfiguration().getClass("bsp.output.value.class", Object.class),
-        peer.getConfiguration());
+    this.value = (V2) ReflectionUtils.newInstance((Class<? extends V2>) conf
+        .getClass("bsp.output.value.class", Object.class), conf);
 
     this.sequenceFileReaders = new HashMap<Integer, SequenceFile.Reader>();
     this.sequenceFileWriters = new HashMap<Integer, SequenceFile.Writer>();
@@ -80,7 +80,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
   public UplinkReader(BinaryProtocol<K1, V1, K2, V2> binaryProtocol,
       BSPPeer<K1, V1, K2, V2, BytesWritable> peer, InputStream stream)
       throws IOException {
-    this(binaryProtocol, stream);
+    this(binaryProtocol, peer.getConfiguration(), stream);
     this.peer = peer;
   }
 
@@ -122,7 +122,6 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
         } else if (cmd == MessageType.READ_KEYVALUE.code && isPeerAvailable()) { // OUTGOING
 
-          Configuration conf = binProtocol.getConfiguration();
           boolean nullinput = conf.get("bsp.input.format.class") == null
               || conf.get("bsp.input.format.class").equals(
                   "org.apache.hama.bsp.NullInputFormat");
@@ -283,7 +282,6 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
           int fileID = -1;
 
-          Configuration conf = binProtocol.getConfiguration();
           FileSystem fs = FileSystem.get(conf);
           if (option.equals("r")) {
             SequenceFile.Reader reader;

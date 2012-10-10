@@ -22,7 +22,9 @@ import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
 import org.apache.commons.logging.Log;
@@ -48,6 +50,15 @@ public class TaskLog {
   public static File getTaskLogFile(TaskAttemptID taskid, LogName filter) {
     // TODO clean up the log path and type.
     return new File(LOG_DIR, taskid.getJobID() + "/" + taskid.toString()
+        + ((filter == LogName.STDERR) ? ".err" : ".log"));
+  }
+
+  public static File getLocalTaskLogFile(LogName filter) {
+    // TODO clean up the log path and type.
+    SimpleDateFormat sdf = new SimpleDateFormat();
+    sdf.applyPattern("yyyyMMddhhmm");
+    return new File(LOG_DIR, "job_" + sdf.format(new Date()) + "/" + "local_"
+        + sdf.format(new Date())
         + ((filter == LogName.STDERR) ? ".err" : ".log"));
   }
 

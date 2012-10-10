@@ -41,6 +41,8 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
   public void setup(BSPPeer<K1, V1, K2, V2, BytesWritable> peer)
       throws IOException, SyncException, InterruptedException {
 
+    LOG.info("pipesApp==null: " + ((pipesApp == null) ? "true" : "false"));
+    
     this.pipesApp.start(peer);
 
     pipesApp.getDownlink().runSetup(false, false);

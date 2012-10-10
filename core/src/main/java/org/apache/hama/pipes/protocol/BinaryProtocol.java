@@ -87,7 +87,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
       raw = new TeeOutputStream("downlink.data", raw);
     }
     stream = new DataOutputStream(new BufferedOutputStream(raw, BUFFER_SIZE));
-    uplink = new UplinkReader<K1, V1, K2, V2>(this, sock.getInputStream());
+    uplink = new UplinkReader<K1, V1, K2, V2>(this, conf, sock.getInputStream());
 
     uplink.setName("pipe-uplink-handler");
     uplink.start();

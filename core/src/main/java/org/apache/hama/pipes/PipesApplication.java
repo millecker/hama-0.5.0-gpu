@@ -170,10 +170,8 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     List<String> cmd = setupCommand(conf);
 
     // wrap the command in a stdout/stderr capture
-    /* TODO */
-    TaskAttemptID taskid = new TaskAttemptID();
-    File stdout = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDOUT);
-    File stderr = TaskLog.getTaskLogFile(taskid, TaskLog.LogName.STDERR);
+    File stdout = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDOUT);
+    File stderr = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDERR);
     // Get the desired maximum length of task's logs.
     long logLength = TaskLog.getTaskLogLength(conf);
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
