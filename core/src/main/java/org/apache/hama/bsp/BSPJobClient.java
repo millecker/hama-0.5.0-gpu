@@ -48,10 +48,10 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.io.BytesWritable;
 import org.apache.hadoop.io.DataOutputBuffer;
 import org.apache.hadoop.io.SequenceFile;
+import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.io.WritableUtils;
-import org.apache.hadoop.io.SequenceFile.CompressionType;
 import org.apache.hadoop.io.compress.CompressionCodec;
 import org.apache.hadoop.ipc.RPC;
 import org.apache.hadoop.net.NetUtils;
@@ -732,6 +732,10 @@ public class BSPJobClient extends Configured implements Tool {
     // TODO if error found, kill job
     // running.killJob();
     jc.close();
+
+    // Added cleanup
+    // Client PipesApp and DistributedCache
+    job.cleanup();
   }
 
   /**

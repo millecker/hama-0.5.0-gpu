@@ -315,7 +315,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
    * 
    * @throws IOException
    */
-  void cleanup() throws IOException {
+  public void cleanup() throws IOException {
     serverSocket.close();
     try {
       downlink.close();

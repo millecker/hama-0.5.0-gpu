@@ -31,7 +31,7 @@ import org.apache.hadoop.fs.Path;
 
 public class DistributedCacheUtil {
 
-  private static final Log LOG = LogFactory.getLog(DistributedCache.class);
+  private static final Log LOG = LogFactory.getLog(DistributedCacheUtil.class);
 
   /**
    * Transfers DistributedCache files into the local cache files. Also creates
@@ -40,7 +40,8 @@ public class DistributedCacheUtil {
    * 
    * @throws IOException If a DistributedCache file cannot be found.
    */
-  public static final void moveLocalFiles(Configuration conf) throws IOException {
+  public static final void moveLocalFiles(Configuration conf)
+      throws IOException {
     StringBuilder files = new StringBuilder();
     boolean first = true;
     if (DistributedCache.getCacheFiles(conf) != null) {
@@ -56,14 +57,14 @@ public class DistributedCacheUtil {
           }
           FileSystem hdfs = FileSystem.get(conf);
           Path pathSrc = new Path(uri.getPath());
-          LOG.info("pathSrc: "+pathSrc);
+          LOG.info("pathSrc: " + pathSrc);
           if (hdfs.exists(pathSrc)) {
             LocalFileSystem local = LocalFileSystem.getLocal(conf);
             Path pathDst = new Path(local.getWorkingDirectory(),
                 pathSrc.getName());
-            //LOG.info("user.dir: "+System.getProperty("user.dir"));
-            //LOG.info("WorkingDirectory: "+local.getWorkingDirectory());
-            LOG.info("pathDst: "+pathDst);
+            // LOG.info("user.dir: "+System.getProperty("user.dir"));
+            // LOG.info("WorkingDirectory: "+local.getWorkingDirectory());
+            LOG.info("pathDst: " + pathDst);
             hdfs.copyToLocalFile(pathSrc, pathDst);
             files.append(pathDst.toUri().getPath());
           }
@@ -74,5 +75,25 @@ public class DistributedCacheUtil {
     if (files.length() > 0) {
       DistributedCache.addLocalFiles(conf, files.toString());
     }
+  }
+
+  /**
+   * Cleanup local cache files.
+   * 
+   * @throws IOException If a DistributedCache file cannot be found.
+   */
+  public static final void cleanupLocalFiles(Configuration conf)
+      throws IOException {
+
+    LocalFileSystem local = LocalFileSystem.getLocal(conf);
+
+    LOG.debug("DEBUG cleanupLocalFiles - LocalCacheFilesCount: "
+        + DistributedCache.getLocalCacheFiles(conf).length);
+
+    for (Path f : DistributedCache.getLocalCacheFiles(conf)) {
+      LOG.debug("DEBUG cleanupLocalFiles Delete: " + f);
+      local.delete(f, true);
+    }
+
   }
 }

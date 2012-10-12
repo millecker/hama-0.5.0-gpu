@@ -270,6 +270,23 @@ public class BSPJob extends BSPJobContext {
     return pipesApp;
   }
 
+  public void cleanup() {
+
+    try {
+
+      // Close client pipesApplication
+      if (this.getPipesApplication() != null)
+        this.getPipesApplication().cleanup();
+
+      //LOG.info("cleanupDistributedCache...");
+      DistributedCacheUtil.cleanupLocalFiles(conf);
+
+    } catch (IOException e) {
+      LOG.error(e);
+    }
+
+  }
+
   /* MODIFICATIONS DONE */
 
   public void setNumBspTask(int tasks) {
@@ -424,10 +441,10 @@ public class BSPJob extends BSPJobContext {
           .setApplication(this.getPipesApplication());
 
       try {
-        
+
         DistributedCacheUtil.moveLocalFiles(conf);
         this.getPipesApplication().start(conf);
-      
+
       } catch (IOException e) {
         LOG.error(e);
       } catch (InterruptedException e) {
