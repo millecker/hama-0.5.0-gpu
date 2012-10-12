@@ -129,9 +129,10 @@ class SequenceFileConnector {
 public:
   /**
    * Open SequenceFile with option "r" or "w"
+   * key and value type of the values stored in the SequenceFile
    * @return the corresponding fileID
    */
-  virtual int sequenceFileOpen(const string& path, const string& option) = 0;
+  virtual int sequenceFileOpen(const string& path, const string& option, const string& keyType, const string& valueType) = 0;
     
   /**
    * Read next key/value pair from the SequenceFile with fileID
