@@ -42,6 +42,14 @@ public interface DownwardProtocol<K1 extends Writable, V1 extends Writable, K2 e
   void start() throws IOException;
 
   /**
+   * Set the BSP Job Configuration
+   * 
+   * @throws IOException
+   */
+  void setBSPJobConf() throws IOException;
+
+  
+  /**
    * Set the input types for BSP.
    * 
    * @param keyType the name of the key's type

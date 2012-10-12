@@ -25,6 +25,10 @@ import java.io.FilterOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map.Entry;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -131,7 +135,7 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   public synchronized void setHasTask(boolean hasTask) {
     this.hasTask = hasTask;
   }
-  
+
   public synchronized void setResult(int result) {
     this.resultInt = result;
   }
@@ -195,6 +199,26 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
   }
 
   @Override
+  public void setBSPJobConf() throws IOException {
+
+    List<Entry<String, String>> configVals = new ArrayList<Entry<String, String>>();
+    Iterator<Entry<String, String>> itr = this.conf.iterator();
+    while (itr.hasNext())
+      configVals.add(itr.next());
+
+    WritableUtils.writeVInt(stream, MessageType.SET_BSPJOB_CONF.code);
+    WritableUtils.writeVInt(stream, configVals.size());
+    //LOG.debug("Entries: "+configVals.size());
+    for (Entry<String, String> entry : configVals) {
+      Text.writeString(stream, entry.getKey());
+      Text.writeString(stream, entry.getValue());
+      //LOG.debug(entry.getKey()+":"+entry.getValue());
+    }
+    flush();
+    LOG.debug("Sent MessageType.SET_BSPJOB_CONF including "+configVals.size()+" entries.");
+  }
+
+  @Override
   public void setInputTypes(String keyType, String valueType)
       throws IOException {
     WritableUtils.writeVInt(stream, MessageType.SET_INPUT_TYPES.code);
@@ -249,23 +273,23 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
     Text.writeString(stream, value);
     WritableUtils.writeVInt(stream, numTasks);
     flush();
-    LOG.info("Sent MessageType.PARTITION_REQUEST - key: " + key + " value: "
-        + value + " numTasks: " + numTasks);
+    LOG.debug("Sent MessageType.PARTITION_REQUEST - key: " + key + " value: "
+        + value.substring(0, 10) + "..." + " numTasks: " + numTasks);
 
     int resultVal = 0;
-    
+
     synchronized (resultLock) {
       try {
-        while (resultInt==null)
+        while (resultInt == null)
           resultLock.wait();
-        
+
         resultVal = resultInt;
         resultInt = null;
-        
+
       } catch (InterruptedException e) {
         LOG.error(e);
       }
-    } 
+    }
     return resultVal;
   }
 
@@ -307,12 +331,12 @@ public class BinaryProtocol<K1 extends Writable, V1 extends Writable, K2 extends
       try {
         while (hasTask)
           hasTaskLock.wait();
-        
+
       } catch (InterruptedException e) {
         LOG.error(e);
       }
     }
-    
+
     return hasTask;
   }
 

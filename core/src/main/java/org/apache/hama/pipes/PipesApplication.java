@@ -91,7 +91,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     /* Set Logging Environment from Configuration */
     environment.put("hama.pipes.logging",
         conf.getBoolean("hama.pipes.logging", false) ? "1" : "0");
-    LOG.info("DEBUG hama.pipes.logging: "
+    LOG.debug("DEBUG hama.pipes.logging: "
         + conf.getBoolean("hama.pipes.logging", false));
 
     return environment;
@@ -110,14 +110,14 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      LOG.info("DEBUG LocalCacheFilesCount: "
+      LOG.debug("DEBUG LocalCacheFilesCount: "
           + DistributedCache.getLocalCacheFiles(conf).length);
       for (Path u : DistributedCache.getLocalCacheFiles(conf))
-        LOG.info("DEBUG LocalCacheFiles: " + u);
+        LOG.debug("DEBUG LocalCacheFiles: " + u);
 
       executable = DistributedCache.getLocalCacheFiles(conf)[0].toString();
 
-      LOG.info("DEBUG: executable: " + executable);
+      LOG.debug("DEBUG: executable: " + executable);
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -197,6 +197,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
 
       downlink = new BinaryProtocol<K1, V1, K2, V2>(conf, clientSocket);
       downlink.start();
+      downlink.setBSPJobConf();
 
     } catch (SocketTimeoutException e) {
       LOG.error("Timout: Client pipes application was not connecting!");
@@ -251,6 +252,7 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
 
       downlink = new BinaryProtocol<K1, V1, K2, V2>(peer, clientSocket);
       downlink.start();
+      downlink.setBSPJobConf();
 
     } catch (SocketTimeoutException e) {
       LOG.error("Timout: Client pipes application was not connecting!");

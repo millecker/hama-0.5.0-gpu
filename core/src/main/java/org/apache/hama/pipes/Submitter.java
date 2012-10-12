@@ -54,6 +54,7 @@ import org.apache.hama.bsp.FileOutputFormat;
 import org.apache.hama.bsp.InputFormat;
 import org.apache.hama.bsp.OutputFormat;
 import org.apache.hama.bsp.Partitioner;
+import org.apache.hama.pipes.util.DistributedCacheUtil;
 import org.apache.hama.util.GenericOptionsParser;
 
 /**
@@ -319,6 +320,7 @@ public class Submitter implements Tool {
     // TODO Set default Job name
     setIfUnset(job.getConf(), "bsp.job.name", "Hama Pipes Job - " + cpubin);
 
+    // Add executables to DistributedCache
     URI[] fileCache = DistributedCache.getCacheFiles(job.getConf());
     int count = ((cpubin != null) && (gpubin != null)) ? 2 : 1;
     if (fileCache == null) {
@@ -350,6 +352,16 @@ public class Submitter implements Tool {
       }
     }
     DistributedCache.setCacheFiles(fileCache, job.getConf());
+
+    // Add libjars to HDFS
+    LOG.info("conf.get(tmpjars): " + job.getConf().get("tmpjars"));
+
+    String hdfsFileUrls = DistributedCacheUtil.addFilesToHDFS(job.getConf(),
+        job.getConf().get("tmpjars"));
+    job.getConf().set("tmpjars", hdfsFileUrls);
+
+    LOG.info("conf.get(tmpjars): " + job.getConf().get("tmpjars"));
+
   }
 
   /**
@@ -446,6 +458,7 @@ public class Submitter implements Tool {
       LOG.debug("DEBUG: execute GenericOptionsParser");
       GenericOptionsParser genericParser = new GenericOptionsParser(getConf(),
           args);
+
       // get other arguments
       CommandLine results = parser.parse(cli.options,
           genericParser.getRemainingArgs());

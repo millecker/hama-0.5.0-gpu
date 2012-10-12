@@ -19,6 +19,8 @@ package org.apache.hama.bsp;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map.Entry;
@@ -186,6 +188,29 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
     syncClient = SyncServiceFactory.getSyncClient(conf);
     syncClient.init(conf, taskId.getJobID(), taskId);
 
+    /* MODIFICATIONS START */
+    // Move files from DistributedCache to the local cache
+    // and set DistributedCache.LocalFiles
+    try {
+      DistributedCacheUtil.moveLocalFiles(this.conf);
+    } catch (Exception e) {
+      LOG.error(e);
+    }
+
+    // LOG.info("conf.get(tmpjars): " + this.conf.get("tmpjars"));
+    URL[] libjars = DistributedCacheUtil.addJarsToJobClasspath(conf);
+
+    // ATTENTION bspJob.getConf() != this.conf
+    bspJob.getConf().setClassLoader(
+        new URLClassLoader(libjars, bspJob.getConf().getClassLoader()));
+
+    /* MODIFICATIONS END */
+
+    /*
+     * URL[] urls = ((URLClassLoader)
+     * Thread.currentThread().getContextClassLoader()) .getURLs(); for (URL u :
+     * urls) LOG.info("currentThread.ClassLoader: " + u.getPath());
+     */
     initInput();
 
     String outdir = null;
@@ -203,14 +228,6 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
         finalOut.write(key, value);
       }
     };
-
-    // Move files from DistributedCache to the local cache
-    // and set DistributedCache.LocalFiles
-    try {
-      DistributedCacheUtil.moveLocalFiles(this.conf);
-    } catch (Exception e) {
-      LOG.error(e);
-    }
   }
 
   @SuppressWarnings("unchecked")

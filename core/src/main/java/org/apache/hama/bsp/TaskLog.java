@@ -56,7 +56,7 @@ public class TaskLog {
   public static File getLocalTaskLogFile(LogName filter) {
     // TODO clean up the log path and type.
     SimpleDateFormat sdf = new SimpleDateFormat();
-    sdf.applyPattern("yyyyMMddhhmm");
+    sdf.applyPattern("yyyyMMddHHmm_ss");
     return new File(LOG_DIR, "job_" + sdf.format(new Date()) + "/" + "local_"
         + sdf.format(new Date())
         + ((filter == LogName.STDERR) ? ".err" : ".log"));

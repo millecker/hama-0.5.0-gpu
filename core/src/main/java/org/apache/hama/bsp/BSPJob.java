@@ -278,9 +278,6 @@ public class BSPJob extends BSPJobContext {
       if (this.getPipesApplication() != null)
         this.getPipesApplication().cleanup();
 
-      //LOG.info("cleanupDistributedCache...");
-      DistributedCacheUtil.cleanupLocalFiles(conf);
-
     } catch (IOException e) {
       LOG.error(e);
     }

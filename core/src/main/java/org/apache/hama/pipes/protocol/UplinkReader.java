@@ -176,7 +176,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
             binProtocol.setHasTask(false);
             LOG.debug("Got MessageType.TASK_DONE");
             binProtocol.hasTaskLock.notify();
-          }         
+          }
 
         } else if (cmd == MessageType.DONE.code) { // INCOMING
           LOG.debug("Pipe child done");
@@ -316,6 +316,8 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         } else if (cmd == MessageType.SEQFILE_READNEXT.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
 
+          LOG.debug("Responded MessageType.SEQFILE_READNEXT - FileID: "
+              + fileID);
           Writable key = null;
           Writable val = null;
 

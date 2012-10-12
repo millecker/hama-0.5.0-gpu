@@ -68,10 +68,21 @@ namespace HamaPipes {
     }
 
     virtual const string& get(const string& key) const {
+ 
+     fprintf(stderr,"HamaPipes::BSPJobImpl::get 1\n"); 
+        fflush(stderr);
+        
       map<string,string>::const_iterator itr = values.find(key);
+ 
+        fprintf(stderr,"HamaPipes::BSPJobImpl::get 2\n"); 
+        fflush(stderr);
+        
       if (itr == values.end()) {
         throw Error("Key " + key + " not found in BSPJob");
       }
+        fprintf(stderr,"HamaPipes::BSPJobImpl::get 3\n"); 
+        fflush(stderr);
+        
       return itr->second;
     }
 
@@ -311,13 +322,14 @@ namespace HamaPipes {
         int32_t entries;
         entries = deserializeInt(*downStream);
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF entries: %d\n", entries); 
-        vector<string> result(entries);
-        for(int i=0; i < entries; ++i) {
+        vector<string> result(entries*2);
+        for(int i=0; i < entries*2; ++i) {
           string item;
           deserializeString(item, *downStream);
           result.push_back(item);
           if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SET_BSPJOB_CONF add NewEntry: %s\n", item.c_str()); 
         }
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got all Configuration %d entries!\n", entries);
         handler->setBSPJob(result);
         break;
       }
@@ -1019,6 +1031,11 @@ namespace HamaPipes {
       while (!isNewResultInt)
         protocol->nextEvent();
         
+      if (logging && resultInt==0)  
+        fprintf(stderr,"HamaPipes::BSPContextImpl::sequenceFileClose - Nothing was closed!\n");
+      else if (logging)
+        fprintf(stderr,"HamaPipes::BSPContextImpl::sequenceFileClose - File was successfully closed!\n");
+    
       isNewResultInt = false;
       return (resultInt==1);
     }

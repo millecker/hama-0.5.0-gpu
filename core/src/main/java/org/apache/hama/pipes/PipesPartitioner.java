@@ -55,7 +55,7 @@ public class PipesPartitioner<K, V> implements Partitioner<K, V>,
       //LOG.info("pipesApp.getDownlink()==null: "
       //    + ((pipesApp.getDownlink() == null) ? "true" : "false"));
 
-      LOG.info("Class: "+value.getClass().toString());
+      //LOG.info("Class: "+value.getClass().toString());
       if ( (pipesApp != null) && (pipesApp.getDownlink() != null) )
           returnVal = pipesApp.getDownlink().getPartition(key.toString(),
               value.toString(), numTasks);

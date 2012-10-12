@@ -89,8 +89,6 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
     
     pipesApp.cleanup();
     
-    /* Cleanup distributed cache - local files */
-    DistributedCacheUtil.cleanupLocalFiles(peer.getConfiguration());
   }
 
   @SuppressWarnings("unchecked")
