@@ -140,76 +140,79 @@ public class DistributedCacheUtil {
    */
   public static URL[] addJarsToJobClasspath(Configuration conf) {
     URL[] classLoaderURLs = ((URLClassLoader) conf.getClassLoader()).getURLs();
-    String files = conf.get("tmpjars");
+    String files = conf.get("tmpjars", "");
 
-    String[] fileArr = files.split(",");
-    URL[] libjars = new URL[fileArr.length + classLoaderURLs.length];
+    if (!files.isEmpty()) {
+      String[] fileArr = files.split(",");
+      URL[] libjars = new URL[fileArr.length + classLoaderURLs.length];
 
-    for (int i = 0; i < fileArr.length; i++) {
-      String tmp = fileArr[i];
+      for (int i = 0; i < fileArr.length; i++) {
+        String tmp = fileArr[i];
 
-      URI pathURI;
-      try {
-        pathURI = new URI(tmp);
-      } catch (URISyntaxException e) {
-        throw new IllegalArgumentException(e);
-      }
-
-      try {
-        FileSystem hdfs = FileSystem.get(conf);
-        Path pathSrc = new Path(pathURI.getPath());
-        // LOG.info("pathSrc: " + pathSrc);
-
-        if (hdfs.exists(pathSrc)) {
-          LocalFileSystem local = LocalFileSystem.getLocal(conf);
-
-          // File dst = File.createTempFile(pathSrc.getName() + "-", ".jar");
-          Path pathDst = new Path(local.getWorkingDirectory(),
-              pathSrc.getName());
-
-          LOG.debug("copyToLocalFile: " + pathDst);
-          hdfs.copyToLocalFile(pathSrc, pathDst);
-          local.deleteOnExit(pathDst);
-
-          libjars[i] = new URL(local.makeQualified(pathDst).toString());
+        URI pathURI;
+        try {
+          pathURI = new URI(tmp);
+        } catch (URISyntaxException e) {
+          throw new IllegalArgumentException(e);
         }
 
-      } catch (IOException ex) {
-        throw new RuntimeException("Error setting up classpath", ex);
+        try {
+          FileSystem hdfs = FileSystem.get(conf);
+          Path pathSrc = new Path(pathURI.getPath());
+          // LOG.info("pathSrc: " + pathSrc);
+
+          if (hdfs.exists(pathSrc)) {
+            LocalFileSystem local = LocalFileSystem.getLocal(conf);
+
+            // File dst = File.createTempFile(pathSrc.getName() + "-", ".jar");
+            Path pathDst = new Path(local.getWorkingDirectory(),
+                pathSrc.getName());
+
+            LOG.debug("copyToLocalFile: " + pathDst);
+            hdfs.copyToLocalFile(pathSrc, pathDst);
+            local.deleteOnExit(pathDst);
+
+            libjars[i] = new URL(local.makeQualified(pathDst).toString());
+          }
+
+        } catch (IOException ex) {
+          throw new RuntimeException("Error setting up classpath", ex);
+        }
       }
-    }
 
-    // Add old classLoader entries
-    int index = fileArr.length;
-    for (int i = 0; i < classLoaderURLs.length; i++) {
-      libjars[index] = classLoaderURLs[i];
-      index++;
-    }
-
-    // Set classloader in current conf/thread
-    conf.setClassLoader(new URLClassLoader(libjars, conf.getClassLoader()));
-
-    Thread.currentThread().setContextClassLoader(
-        new URLClassLoader(libjars, Thread.currentThread()
-            .getContextClassLoader()));
-
-    // URL[] urls = ((URLClassLoader) conf.getClassLoader()).getURLs();
-    // for (URL u : urls)
-    // LOG.info("newClassLoader: " + u.getPath());
-
-    // Set tmpjars
-    // hdfs to local path
-    String jars = "";
-    for (int i = 0; i < fileArr.length; i++) {
-      URL url = libjars[i];
-      if (jars.length() > 0) {
-        jars += ",";
+      // Add old classLoader entries
+      int index = fileArr.length;
+      for (int i = 0; i < classLoaderURLs.length; i++) {
+        libjars[index] = classLoaderURLs[i];
+        index++;
       }
-      jars += url.toString();
-    }
-    conf.set("tmpjars", jars);
 
-    return libjars;
+      // Set classloader in current conf/thread
+      conf.setClassLoader(new URLClassLoader(libjars, conf.getClassLoader()));
+
+      Thread.currentThread().setContextClassLoader(
+          new URLClassLoader(libjars, Thread.currentThread()
+              .getContextClassLoader()));
+
+      // URL[] urls = ((URLClassLoader) conf.getClassLoader()).getURLs();
+      // for (URL u : urls)
+      // LOG.info("newClassLoader: " + u.getPath());
+
+      // Set tmpjars
+      // hdfs to local path
+      String jars = "";
+      for (int i = 0; i < fileArr.length; i++) {
+        URL url = libjars[i];
+        if (jars.length() > 0) {
+          jars += ",";
+        }
+        jars += url.toString();
+      }
+      conf.set("tmpjars", jars);
+
+      return libjars;
+    }
+    return null;
   }
 
 }

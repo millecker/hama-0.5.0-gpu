@@ -201,8 +201,9 @@ public final class BSPPeerImpl<K1, V1, K2, V2, M extends Writable> implements
     URL[] libjars = DistributedCacheUtil.addJarsToJobClasspath(conf);
 
     // ATTENTION bspJob.getConf() != this.conf
-    bspJob.getConf().setClassLoader(
-        new URLClassLoader(libjars, bspJob.getConf().getClassLoader()));
+    if (libjars != null)
+      bspJob.getConf().setClassLoader(
+          new URLClassLoader(libjars, bspJob.getConf().getClassLoader()));
 
     /* MODIFICATIONS END */
 

@@ -42,7 +42,6 @@ import org.apache.hadoop.io.WritableUtils;
 import org.apache.hadoop.util.ReflectionUtils;
 import org.apache.hadoop.util.StringUtils;
 import org.apache.hama.bsp.BSPPeer;
-import org.apache.hama.bsp.Partitioner;
 import org.apache.hama.util.KeyValuePair;
 
 public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends Writable, V2 extends Writable>
@@ -114,7 +113,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         }
 
         int cmd = WritableUtils.readVInt(inStream);
-        LOG.debug("Handling uplink command " + cmd);
+        //LOG.debug("Handling uplink command " + cmd);
 
         if (cmd == MessageType.WRITE_KEYVALUE.code && isPeerAvailable()) { // INCOMING
           readObject(key); // string or binary only
@@ -139,7 +138,8 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
               binProtocol.writeObject(pair.getValue());
 
               LOG.debug("Responded MessageType.READ_KEYVALUE - Key: "
-                  + pair.getKey() + " Value: " + pair.getValue());
+                  + pair.getKey().toString() + " Value: "
+                  + pair.getValue().toString().substring(0, 10));
 
             } else {
               Text.writeString(stream, "");
@@ -297,9 +297,12 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
             try {
               reader = new SequenceFile.Reader(fs, new Path(path), conf);
               fileID = reader.hashCode();
-              sequenceFileReaders.put(fileID, 
-                  new AbstractMap.SimpleEntry<SequenceFile.Reader,Entry<String,String>>(reader,
-                      new AbstractMap.SimpleEntry<String,String>(keyType,valueType)));
+              sequenceFileReaders
+                  .put(
+                      fileID,
+                      new AbstractMap.SimpleEntry<SequenceFile.Reader, Entry<String, String>>(
+                          reader, new AbstractMap.SimpleEntry<String, String>(
+                              keyType, valueType)));
             } catch (IOException e) {
               fileID = -1;
             }
@@ -310,9 +313,12 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
               writer = new SequenceFile.Writer(fs, conf, new Path(path),
                   Text.class, Text.class);
               fileID = writer.hashCode();
-              sequenceFileWriters.put(fileID, 
-                  new AbstractMap.SimpleEntry<SequenceFile.Writer,Entry<String,String>>(writer,
-                      new AbstractMap.SimpleEntry<String,String>(keyType,valueType)));
+              sequenceFileWriters
+                  .put(
+                      fileID,
+                      new AbstractMap.SimpleEntry<SequenceFile.Writer, Entry<String, String>>(
+                          writer, new AbstractMap.SimpleEntry<String, String>(
+                              keyType, valueType)));
             } catch (IOException e) {
               fileID = -1;
             }
@@ -326,27 +332,33 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         } else if (cmd == MessageType.SEQFILE_READNEXT.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
 
-          LOG.debug("GOT MessageType.SEQFILE_READNEXT - FileID: " + fileID);
-          
+          //LOG.debug("GOT MessageType.SEQFILE_READNEXT - FileID: " + fileID);
+
           Class<?> keyType = conf.getClassLoader().loadClass(
-              sequenceFileReaders.get(fileID).getValue().getKey());          
-          Writable key = (Writable)ReflectionUtils.newInstance(keyType,conf);
+              sequenceFileReaders.get(fileID).getValue().getKey());
+          Writable key = (Writable) ReflectionUtils.newInstance(keyType, conf);
 
           Class<?> valueType = conf.getClassLoader().loadClass(
-              sequenceFileReaders.get(fileID).getValue().getValue());          
-          Writable value = (Writable)ReflectionUtils.newInstance(valueType,conf);
-         
+              sequenceFileReaders.get(fileID).getValue().getValue());
+          Writable value = (Writable) ReflectionUtils.newInstance(valueType,
+              conf);
+
           if (sequenceFileReaders.containsKey(fileID))
             sequenceFileReaders.get(fileID).getKey().next(key, value);
 
           // RESPOND
           WritableUtils.writeVInt(stream, MessageType.SEQFILE_READNEXT.code);
-          if (key != null && value != null) {
-            Text.writeString(stream, key.toString());
-            Text.writeString(stream, value.toString());
-            LOG.debug("Responded MessageType.SEQFILE_READNEXT - key: " + key
-                + " val: " + value);
-          } else {
+          try {
+            String k = key.toString();
+            String v = value.toString();
+            Text.writeString(stream, k);
+            Text.writeString(stream, v);
+            LOG.debug("Responded MessageType.SEQFILE_READNEXT - key: "
+                + key.toString() + " val: " + value.toString().substring(0, 10)
+                + "...");
+
+          } catch (NullPointerException e) { // key or value is null
+
             Text.writeString(stream, "");
             Text.writeString(stream, "");
             LOG.debug("Responded MessageType.SEQFILE_READNEXT - EMPTY KeyValue Pair");
@@ -360,8 +372,8 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
           boolean result = false;
           if (sequenceFileWriters.containsKey(fileID)) {
-            sequenceFileWriters.get(fileID).getKey().append(new Text(keyStr),
-                new Text(valueStr));
+            sequenceFileWriters.get(fileID).getKey()
+                .append(new Text(keyStr), new Text(valueStr));
             result = true;
           }
 
@@ -373,6 +385,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
         } else if (cmd == MessageType.SEQFILE_CLOSE.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
+          
           boolean result = false;
 
           if (sequenceFileReaders.containsKey(fileID)) {
