@@ -35,14 +35,12 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = i686-apple-darwin11.4.0
-host_triplet = i686-apple-darwin11.4.0
-DIST_COMMON = config.guess config.guess config.sub config.sub \
-	$(srcdir)/Makefile.in $(srcdir)/Makefile.am \
-	$(top_srcdir)/configure $(am__configure_deps) \
-	$(top_srcdir)/impl/config.h.in depcomp depcomp ltmain.sh \
-	ltmain.sh config.guess config.guess config.sub config.sub \
-	$(api_HEADERS)
+build_triplet = i686-apple-darwin11.4.2
+host_triplet = i686-apple-darwin11.4.2
+DIST_COMMON = config.guess config.sub $(srcdir)/Makefile.in \
+	$(srcdir)/Makefile.am $(top_srcdir)/configure \
+	$(am__configure_deps) $(top_srcdir)/impl/config.h.in depcomp \
+	ltmain.sh config.guess config.sub $(api_HEADERS)
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/hadoop_utils.m4 \
@@ -68,7 +66,7 @@ libhadooputils_a_AR = $(AR) $(ARFLAGS)
 libhadooputils_a_LIBADD =
 am__dirstamp = $(am__leading_dot)dirstamp
 am_libhadooputils_a_OBJECTS = impl/StringUtils.$(OBJEXT) \
-	impl/SerialUtils.$(OBJEXT)
+	impl/SerialUtils.$(OBJEXT) impl/Splitter.$(OBJEXT)
 libhadooputils_a_OBJECTS = $(am_libhadooputils_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/impl
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -155,20 +153,20 @@ am__quote =
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = i686-apple-darwin11.4.0
+build = i686-apple-darwin11.4.2
 build_alias = 
 build_cpu = i686
-build_os = darwin11.4.0
+build_os = darwin11.4.2
 build_vendor = apple
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE_TARNAME}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = i686-apple-darwin11.4.0
+host = i686-apple-darwin11.4.2
 host_alias = 
 host_cpu = i686
-host_os = darwin11.4.0
+host_os = darwin11.4.2
 host_vendor = apple
 htmldir = ${docdir}
 includedir = ${prefix}/include
@@ -212,7 +210,8 @@ AM_CXXFLAGS = -I$(srcdir)/api -Wall
 apidir = $(includedir)/hadoop
 api_HEADERS = \
 	api/hadoop/StringUtils.hh \
-	api/hadoop/SerialUtils.hh
+	api/hadoop/SerialUtils.hh \
+	api/hadoop/Splitter.hh
 
 
 # Define the libaries that need to be built
@@ -221,7 +220,8 @@ lib_LIBRARIES = libhadooputils.a
 # Define the sources for lib 
 libhadooputils_a_SOURCES = \
 	impl/StringUtils.cc \
-	impl/SerialUtils.cc
+	impl/SerialUtils.cc \
+	impl/Splitter.cc
 
 all: all-am
 
@@ -316,6 +316,8 @@ impl/StringUtils.$(OBJEXT): impl/$(am__dirstamp) \
 	impl/$(DEPDIR)/$(am__dirstamp)
 impl/SerialUtils.$(OBJEXT): impl/$(am__dirstamp) \
 	impl/$(DEPDIR)/$(am__dirstamp)
+impl/Splitter.$(OBJEXT): impl/$(am__dirstamp) \
+	impl/$(DEPDIR)/$(am__dirstamp)
 libhadooputils.a: $(libhadooputils_a_OBJECTS) $(libhadooputils_a_DEPENDENCIES) 
 	-rm -f libhadooputils.a
 	$(libhadooputils_a_AR) libhadooputils.a $(libhadooputils_a_OBJECTS) $(libhadooputils_a_LIBADD)
@@ -324,12 +326,14 @@ libhadooputils.a: $(libhadooputils_a_OBJECTS) $(libhadooputils_a_DEPENDENCIES)
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 	-rm -f impl/SerialUtils.$(OBJEXT)
+	-rm -f impl/Splitter.$(OBJEXT)
 	-rm -f impl/StringUtils.$(OBJEXT)
 
 distclean-compile:
 	-rm -f *.tab.c
 
 include impl/$(DEPDIR)/SerialUtils.Po
+include impl/$(DEPDIR)/Splitter.Po
 include impl/$(DEPDIR)/StringUtils.Po
 
 .cc.o:

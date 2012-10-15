@@ -20,7 +20,8 @@ AM_CXXFLAGS=-I$(srcdir)/api -Wall
 apidir = $(includedir)/hadoop
 api_HEADERS = \
 	api/hadoop/StringUtils.hh \
-	api/hadoop/SerialUtils.hh
+	api/hadoop/SerialUtils.hh \
+	api/hadoop/Splitter.hh
 
 
 # Define the libaries that need to be built
@@ -29,5 +30,6 @@ lib_LIBRARIES = libhadooputils.a
 # Define the sources for lib 
 libhadooputils_a_SOURCES = \
 	impl/StringUtils.cc \
-	impl/SerialUtils.cc
+	impl/SerialUtils.cc \
+	impl/Splitter.cc
 

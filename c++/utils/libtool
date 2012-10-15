@@ -44,7 +44,7 @@ available_tags=" CXX"
 
 # ### BEGIN LIBTOOL CONFIG
 
-# Libtool was configured on host BaFus-MacBook-Pro.local:
+# Libtool was configured on host ysh02-227-38.uibk.ac.at:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -66,13 +66,13 @@ fast_install=needless
 
 # The host system.
 host_alias=
-host=i686-apple-darwin11.4.0
-host_os=darwin11.4.0
+host=i686-apple-darwin11.4.2
+host_os=darwin11.4.2
 
 # The build system.
 build_alias=
-build=i686-apple-darwin11.4.0
-build_os=darwin11.4.0
+build=i686-apple-darwin11.4.2
+build_os=darwin11.4.2
 
 # An echo program that does not interpret backslashes.
 echo="/bin/echo"
@@ -7263,7 +7263,7 @@ disable_libs=static
 # End:
 # ### BEGIN LIBTOOL TAG CONFIG: CXX
 
-# Libtool was configured on host BaFus-MacBook-Pro.local:
+# Libtool was configured on host ysh02-227-38.uibk.ac.at:
 
 # Shell to use when invoking shell scripts.
 SHELL="/bin/sh"
@@ -7285,13 +7285,13 @@ fast_install=needless
 
 # The host system.
 host_alias=
-host=i686-apple-darwin11.4.0
-host_os=darwin11.4.0
+host=i686-apple-darwin11.4.2
+host_os=darwin11.4.2
 
 # The build system.
 build_alias=
-build=i686-apple-darwin11.4.0
-build_os=darwin11.4.0
+build=i686-apple-darwin11.4.2
+build_os=darwin11.4.2
 
 # An echo program that does not interpret backslashes.
 echo="/bin/echo"

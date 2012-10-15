@@ -110,17 +110,20 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     // Check whether the applicaton will run on GPU and take right executable
     String executable = null;
     try {
-      LOG.debug("DEBUG LocalCacheFilesCount: "
-          + DistributedCache.getLocalCacheFiles(conf).length);
-      for (Path u : DistributedCache.getLocalCacheFiles(conf))
-        LOG.debug("DEBUG LocalCacheFiles: " + u);
+      if (DistributedCache.getLocalCacheFiles(conf) != null) {
+        LOG.debug("DEBUG LocalCacheFilesCount: "
+            + DistributedCache.getLocalCacheFiles(conf).length);
+        for (Path u : DistributedCache.getLocalCacheFiles(conf))
+          LOG.debug("DEBUG LocalCacheFiles: " + u);
 
-      executable = DistributedCache.getLocalCacheFiles(conf)[0].toString();
+        executable = DistributedCache.getLocalCacheFiles(conf)[0].toString();
 
-      LOG.debug("DEBUG: executable: " + executable);
+        LOG.debug("DEBUG: executable: " + executable);
 
+      }
     } catch (Exception e) {
-      e.printStackTrace();
+      // e.printStackTrace();
+      LOG.error(e);
       // if executable (GPU) missing?
       // LOG.info("ERROR: "
       // + ((Integer.parseInt(e.getMessage()) == 1) ? "GPU " : "CPU")
@@ -173,9 +176,9 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
 
     // wrap the command in a stdout/stderr capture
     File stdout = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDOUT,
-        "yyyyMMdd_partitioner_HHmmss");
+        "yyyyMMdd'_partitioner_'HHmmss");
     File stderr = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDERR,
-        "yyyyMMdd_partitioner_HHmmss");
+        "yyyyMMdd'_partitioner_'HHmmss");
     // Get the desired maximum length of task's logs.
     long logLength = TaskLog.getTaskLogLength(conf);
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
