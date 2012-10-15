@@ -53,10 +53,10 @@ public class TaskLog {
         + ((filter == LogName.STDERR) ? ".err" : ".log"));
   }
 
-  public static File getLocalTaskLogFile(LogName filter) {
+  public static File getLocalTaskLogFile(LogName filter, String stringPattern) {
     // TODO clean up the log path and type.
     SimpleDateFormat sdf = new SimpleDateFormat();
-    sdf.applyPattern("yyyyMMddHHmm_ss");
+    sdf.applyPattern(stringPattern);
     return new File(LOG_DIR, "job_" + sdf.format(new Date()) + "/" + "local_"
         + sdf.format(new Date())
         + ((filter == LogName.STDERR) ? ".err" : ".log"));

@@ -26,7 +26,6 @@ import org.apache.hadoop.io.Writable;
 import org.apache.hama.bsp.BSP;
 import org.apache.hama.bsp.BSPPeer;
 import org.apache.hama.bsp.sync.SyncException;
-import org.apache.hama.pipes.util.DistributedCacheUtil;
 
 /**
  * 
@@ -43,7 +42,7 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
       throws IOException, SyncException, InterruptedException {
 
     LOG.info("pipesApp==null: " + ((pipesApp == null) ? "true" : "false"));
-    
+
     this.pipesApp.start(peer);
 
     pipesApp.getDownlink().runSetup(false, false);
@@ -65,7 +64,7 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
     } catch (Throwable e) {
       LOG.error(e);
     }
-    
+
   }
 
   /**
@@ -86,9 +85,9 @@ public class PipesBSP<K1 extends Writable, V1 extends Writable, K2 extends Writa
     } catch (Throwable e) {
       LOG.error(e);
     }
-    
+
     pipesApp.cleanup();
-    
+
   }
 
   @SuppressWarnings("unchecked")

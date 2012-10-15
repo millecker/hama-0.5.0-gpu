@@ -338,7 +338,8 @@ namespace HamaPipes {
         deserializeString(key, *downStream);
         deserializeString(value, *downStream);
         if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got READ_KEYVALUE key: %s value: %s\n",
-                key.c_str(),value.substr(0,10).c_str()); 
+                key.c_str(),
+                ((value.length()<10)?value.c_str():value.substr(0,9).c_str()) ); 
         handler->setKeyValue(key, value);
         break;
       }
@@ -445,7 +446,9 @@ namespace HamaPipes {
       case SEQFILE_READNEXT: {
         deserializeString(key, *downStream);
         deserializeString(value, *downStream);
-        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_READNEXT key: %s value: %s\n", key.c_str(),value.substr(0,10).c_str()); 
+        if(logging)fprintf(stderr,"HamaPipes::BinaryProtocol::nextEvent - got SEQFILE_READNEXT key: %s value: %s\n", 
+                key.c_str(),
+                ((value.length()<10)?value.c_str():value.substr(0,9).c_str()) ); 
         handler->setKeyValue(key, value);
         break;
       }

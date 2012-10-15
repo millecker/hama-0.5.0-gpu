@@ -19,11 +19,11 @@
 
 package org.apache.hama.pipes;
 
-import java.io.BufferedInputStream;
-import java.io.DataInputStream;
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
@@ -169,12 +169,13 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
       InterruptedException {
 
     Map<String, String> environment = setupEnvironment(conf);
-
     List<String> cmd = setupCommand(conf);
 
     // wrap the command in a stdout/stderr capture
-    File stdout = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDOUT);
-    File stderr = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDERR);
+    File stdout = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDOUT,
+        "yyyyMMdd_partitioner_HHmmss");
+    File stderr = TaskLog.getLocalTaskLogFile(TaskLog.LogName.STDERR,
+        "yyyyMMdd_partitioner_HHmmss");
     // Get the desired maximum length of task's logs.
     long logLength = TaskLog.getTaskLogLength(conf);
     cmd = TaskLog.captureOutAndError(null, cmd, stdout, stderr, logLength);
@@ -202,12 +203,14 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     } catch (SocketTimeoutException e) {
       LOG.error("Timout: Client pipes application was not connecting!");
 
-      DataInputStream dis = new DataInputStream(new BufferedInputStream(
+      BufferedReader br = new BufferedReader(new InputStreamReader(
           new FileInputStream(stderr)));
-      while (dis.available() != 0) {
-        LOG.error("PipesApp Error: " + dis.readLine());
+
+      String inputLine;
+      while ((inputLine = br.readLine()) != null) {
+        LOG.error("PipesApp Error: " + inputLine);
       }
-      dis.close();
+      br.close();
       System.exit(1);
     }
   }
@@ -223,7 +226,6 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
       throws IOException, InterruptedException {
 
     Map<String, String> environment = setupEnvironment(peer.getConfiguration());
-
     List<String> cmd = setupCommand(peer.getConfiguration());
 
     // wrap the command in a stdout/stderr capture
@@ -257,12 +259,14 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
     } catch (SocketTimeoutException e) {
       LOG.error("Timout: Client pipes application was not connecting!");
 
-      DataInputStream dis = new DataInputStream(new BufferedInputStream(
+      BufferedReader br = new BufferedReader(new InputStreamReader(
           new FileInputStream(stderr)));
-      while (dis.available() != 0) {
-        LOG.error("PipesApp Error: " + dis.readLine());
+
+      String inputLine;
+      while ((inputLine = br.readLine()) != null) {
+        LOG.error("PipesApp Error: " + inputLine);
       }
-      dis.close();
+      br.close();
       System.exit(1);
     }
   }
@@ -318,9 +322,11 @@ public class PipesApplication<K1 extends Writable, V1 extends Writable, K2 exten
    * @throws IOException
    */
   public void cleanup() throws IOException {
-    serverSocket.close();
+    if (serverSocket != null)
+      serverSocket.close();
     try {
-      downlink.close();
+      if (downlink != null)
+        downlink.close();
     } catch (InterruptedException ie) {
       Thread.currentThread().interrupt();
     }

@@ -51,14 +51,14 @@ public class PipesPartitioner<K, V> implements Partitioner<K, V>,
   public int getPartition(K key, V value, int numTasks) {
     int returnVal = 0;
     try {
-      //LOG.info("pipesApp==null: " + ((pipesApp == null) ? "true" : "false"));
-      //LOG.info("pipesApp.getDownlink()==null: "
-      //    + ((pipesApp.getDownlink() == null) ? "true" : "false"));
+      // LOG.info("pipesApp==null: " + ((pipesApp == null) ? "true" : "false"));
+      // LOG.info("pipesApp.getDownlink()==null: "
+      // + ((pipesApp.getDownlink() == null) ? "true" : "false"));
 
-      //LOG.info("Class: "+value.getClass().toString());
-      if ( (pipesApp != null) && (pipesApp.getDownlink() != null) )
-          returnVal = pipesApp.getDownlink().getPartition(key.toString(),
-              value.toString(), numTasks);
+      // LOG.info("Class: "+value.getClass().toString());
+      if ((pipesApp != null) && (pipesApp.getDownlink() != null))
+        returnVal = pipesApp.getDownlink().getPartition(key.toString(),
+            value.toString(), numTasks);
 
     } catch (IOException e) {
       LOG.error(e);

@@ -113,7 +113,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         }
 
         int cmd = WritableUtils.readVInt(inStream);
-        //LOG.debug("Handling uplink command " + cmd);
+        // LOG.debug("Handling uplink command " + cmd);
 
         if (cmd == MessageType.WRITE_KEYVALUE.code && isPeerAvailable()) { // INCOMING
           readObject(key); // string or binary only
@@ -134,12 +134,15 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
             WritableUtils.writeVInt(stream, MessageType.READ_KEYVALUE.code);
             if (pair != null) {
-              binProtocol.writeObject(pair.getKey());
-              binProtocol.writeObject(pair.getValue());
+              Text.writeString(stream, pair.getKey().toString());
+              String valueStr = pair.getValue().toString();
+              Text.writeString(stream, valueStr);
 
               LOG.debug("Responded MessageType.READ_KEYVALUE - Key: "
-                  + pair.getKey().toString() + " Value: "
-                  + pair.getValue().toString().substring(0, 10));
+                  + pair.getKey().toString()
+                  + " Value: "
+                  + ((valueStr.length() < 10) ? valueStr : valueStr.substring(
+                      0, 9) + "..."));
 
             } else {
               Text.writeString(stream, "");
@@ -332,7 +335,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
         } else if (cmd == MessageType.SEQFILE_READNEXT.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
 
-          //LOG.debug("GOT MessageType.SEQFILE_READNEXT - FileID: " + fileID);
+          // LOG.debug("GOT MessageType.SEQFILE_READNEXT - FileID: " + fileID);
 
           Class<?> keyType = conf.getClassLoader().loadClass(
               sequenceFileReaders.get(fileID).getValue().getKey());
@@ -353,9 +356,9 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
             String v = value.toString();
             Text.writeString(stream, k);
             Text.writeString(stream, v);
-            LOG.debug("Responded MessageType.SEQFILE_READNEXT - key: "
-                + key.toString() + " val: " + value.toString().substring(0, 10)
-                + "...");
+            LOG.debug("Responded MessageType.SEQFILE_READNEXT - key: " + k
+                + " value: "
+                + ((v.length() < 10) ? v : v.substring(0, 9) + "..."));
 
           } catch (NullPointerException e) { // key or value is null
 
@@ -385,7 +388,7 @@ public class UplinkReader<K1 extends Writable, V1 extends Writable, K2 extends W
 
         } else if (cmd == MessageType.SEQFILE_CLOSE.code) { // OUTGOING
           int fileID = WritableUtils.readVInt(inStream);
-          
+
           boolean result = false;
 
           if (sequenceFileReaders.containsKey(fileID)) {

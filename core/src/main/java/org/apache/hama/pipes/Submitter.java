@@ -354,14 +354,16 @@ public class Submitter implements Tool {
     DistributedCache.setCacheFiles(fileCache, job.getConf());
 
     // Add libjars to HDFS
-    LOG.info("conf.get(tmpjars): " + job.getConf().get("tmpjars"));
+    String tmpjars = job.getConf().get("tmpjars");
+    LOG.info("conf.get(tmpjars): " + tmpjars);
 
-    String hdfsFileUrls = DistributedCacheUtil.addFilesToHDFS(job.getConf(),
-        job.getConf().get("tmpjars"));
-    job.getConf().set("tmpjars", hdfsFileUrls);
+    if (tmpjars != null) {
+      String hdfsFileUrls = DistributedCacheUtil.addFilesToHDFS(job.getConf(),
+          job.getConf().get("tmpjars"));
+      job.getConf().set("tmpjars", hdfsFileUrls);
 
-    LOG.info("conf.get(tmpjars): " + job.getConf().get("tmpjars"));
-
+      LOG.info("conf.get(tmpjars): " + job.getConf().get("tmpjars"));
+    }
   }
 
   /**
