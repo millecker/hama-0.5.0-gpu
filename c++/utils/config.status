@@ -574,14 +574,14 @@ s,@ac_ct_CXX@,|#_!!_#|g++,g
 s,@CXXDEPMODE@,|#_!!_#|depmode=gcc3,g
 s,@am__fastdepCXX_TRUE@,|#_!!_#|,g
 s,@am__fastdepCXX_FALSE@,|#_!!_#|#,g
-s,@build@,|#_!!_#|i686-apple-darwin11.4.2,g
+s,@build@,|#_!!_#|i686-apple-darwin12.2.0,g
 s,@build_cpu@,|#_!!_#|i686,g
 s,@build_vendor@,|#_!!_#|apple,g
-s,@build_os@,|#_!!_#|darwin11.4.2,g
-s,@host@,|#_!!_#|i686-apple-darwin11.4.2,g
+s,@build_os@,|#_!!_#|darwin12.2.0,g
+s,@host@,|#_!!_#|i686-apple-darwin12.2.0,g
 s,@host_cpu@,|#_!!_#|i686,g
 s,@host_vendor@,|#_!!_#|apple,g
-s,@host_os@,|#_!!_#|darwin11.4.2,g
+s,@host_os@,|#_!!_#|darwin12.2.0,g
 s,@SED@,|#_!!_#|/usr/bin/sed,g
 s,@GREP@,|#_!!_#|/usr/bin/grep,g
 s,@EGREP@,|#_!!_#|/usr/bin/grep -E,g
